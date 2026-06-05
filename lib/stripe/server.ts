@@ -1,0 +1,26 @@
+import Stripe from 'stripe';
+import { createActionClient } from '../supabase/action';
+
+/**
+ * Initializes a Stripe instance on the server dynamically,
+ * prioritizing database settings over environment variables.
+ */
+export async function getStripeServerInstance() {
+  const supabase = await createActionClient();
+  
+  const { data: stripeSettings } = await supabase
+    .from('stripe_settings')
+    .select('*')
+    .eq('id', 1)
+    .single();
+
+  const secretKey = stripeSettings?.secret_key || process.env.STRIPE_SECRET_KEY;
+
+  if (!secretKey || secretKey.includes('placeholder')) {
+    throw new Error('Stripe Secret Key is not configured. Please set it up in the Admin Settings.');
+  }
+
+  return new Stripe(secretKey, {
+    apiVersion: '2025-01-27.acacia' as any, // Set a modern API version compatibility
+  });
+}

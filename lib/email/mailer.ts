@@ -83,7 +83,7 @@ export async function verifySmtpConnection(config: {
     subject: 'SMTP Connection Test',
     html: `
       <div style="font-family: sans-serif; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
-        <h2 style="color: #4f46e5;">ApexSaaS SMTP Test</h2>
+        <h2 style="color: #4f46e5;">Solution22 SMTP Test</h2>
         <p>Congratulations! Your SMTP settings are successfully configured and verified.</p>
         <p>Timestamp: ${new Date().toISOString()}</p>
       </div>

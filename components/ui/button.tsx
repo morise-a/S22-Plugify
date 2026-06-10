@@ -1,14 +1,19 @@
 import * as React from 'react';
 import { Loader2 } from 'lucide-react';
+import Link from 'next/link';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'outline' | 'destructive' | 'ghost' | 'link';
   size?: 'sm' | 'md' | 'lg' | 'icon';
   isLoading?: boolean;
+  href?: string;
+  target?: string;
+  rel?: string;
+  download?: string;
 }
 
-export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className = '', variant = 'primary', size = 'md', isLoading, children, disabled, ...props }, ref) => {
+export const Button = React.forwardRef<any, ButtonProps>(
+  ({ className = '', variant = 'primary', size = 'md', isLoading, children, disabled, href, target, rel, download, ...props }, ref) => {
     const baseStyles = 'inline-flex items-center justify-center rounded-lg text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98] cursor-pointer';
     
     const variants = {
@@ -28,6 +33,24 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     };
 
     const combinedClassName = `${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`;
+
+    if (href) {
+      // Exclude button-specific attributes when rendering as a Link
+      const { type, ...linkProps } = props as any;
+      return (
+        <Link
+          href={href}
+          ref={ref}
+          target={target}
+          rel={rel}
+          download={download}
+          className={combinedClassName}
+          {...linkProps}
+        >
+          {children}
+        </Link>
+      );
+    }
 
     return (
       <button
@@ -50,3 +73,4 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 );
 
 Button.displayName = 'Button';
+

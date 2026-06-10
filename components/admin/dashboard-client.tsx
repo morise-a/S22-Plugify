@@ -53,7 +53,7 @@ export function AdminDashboardClient({ metrics }: AdminDashboardClientProps) {
           <div className="absolute top-0 right-0 h-24 w-24 bg-gradient-to-bl from-indigo-500/[0.03] to-transparent rounded-bl-full pointer-events-none" />
           <div className="flex items-center justify-between">
             <div className="space-y-2.5">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Total Revenue</span>
+              <span className="text-[10px] font-bold text-slate-400 capitalize tracking-widest block">Total Revenue</span>
               <h3 className="text-3xl font-bold text-slate-900 tracking-tight">
                 ${metrics.totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </h3>
@@ -72,7 +72,7 @@ export function AdminDashboardClient({ metrics }: AdminDashboardClientProps) {
           <div className="absolute top-0 right-0 h-24 w-24 bg-gradient-to-bl from-emerald-500/[0.03] to-transparent rounded-bl-full pointer-events-none" />
           <div className="flex items-center justify-between">
             <div className="space-y-2.5">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Active Customers</span>
+              <span className="text-[10px] font-bold text-slate-400 capitalize tracking-widest block">Active Customers</span>
               <h3 className="text-3xl font-bold text-slate-900 tracking-tight">
                 {metrics.customerCount.toLocaleString()}
               </h3>
@@ -91,7 +91,7 @@ export function AdminDashboardClient({ metrics }: AdminDashboardClientProps) {
           <div className="absolute top-0 right-0 h-24 w-24 bg-gradient-to-bl from-amber-500/[0.03] to-transparent rounded-bl-full pointer-events-none" />
           <div className="flex items-center justify-between">
             <div className="space-y-2.5">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Active Products</span>
+              <span className="text-[10px] font-bold text-slate-400 capitalize tracking-widest block">Active Products</span>
               <h3 className="text-3xl font-bold text-slate-900 tracking-tight">
                 {metrics.productCount}
               </h3>
@@ -113,7 +113,7 @@ export function AdminDashboardClient({ metrics }: AdminDashboardClientProps) {
         <div className="lg:col-span-2 rounded-2xl border border-slate-200/50 bg-white p-6 shadow-[0_8px_30px_rgb(0,0,0,0.015)] flex flex-col gap-6">
           <div className="flex justify-between items-center pb-3 border-b border-slate-100">
             <div>
-              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Weekly Revenue Stream</h3>
+              <h3 className="text-xs font-bold text-slate-800 capitalize tracking-wider">Weekly Revenue Stream</h3>
               <p className="text-[10px] text-slate-400 mt-0.5">Performance tracking of successful transactions</p>
             </div>
             <Badge variant="outline" className="text-[10px] bg-slate-50 border-slate-200 text-slate-500 font-bold">Last 7 Days</Badge>
@@ -125,7 +125,7 @@ export function AdminDashboardClient({ metrics }: AdminDashboardClientProps) {
         <div className="rounded-2xl border border-slate-200/50 bg-white p-6 shadow-[0_8px_30px_rgb(0,0,0,0.015)] flex flex-col">
           <div className="space-y-4">
             <div>
-              <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Console Shortcuts</h3>
+              <h3 className="text-xs font-bold text-slate-800 capitalize tracking-wider">Console Shortcuts</h3>
               <p className="text-[10px] text-slate-400 mt-0.5">Quick platform configuration management</p>
             </div>
             <p className="text-xs text-slate-500 leading-relaxed font-medium">
@@ -135,33 +135,33 @@ export function AdminDashboardClient({ metrics }: AdminDashboardClientProps) {
 
           <div className="space-y-2 pt-6">
             <Link href="/admin/products" className="block group">
-              <button className="w-full inline-flex items-center justify-between px-4 py-2.5 rounded-xl border border-slate-200/60 bg-white hover:border-indigo-600 hover:bg-slate-50/50 hover:shadow-sm text-xs font-semibold text-slate-700 transition-all duration-200 cursor-pointer">
+              <div className="w-full inline-flex items-center justify-between px-4 py-2.5 rounded-xl border border-slate-200/60 bg-white hover:border-indigo-600 hover:bg-slate-50/50 hover:shadow-sm text-xs font-semibold text-slate-700 transition-all duration-200 cursor-pointer">
                 <span className="flex items-center gap-2.5">
                   <PlusCircle className="h-4 w-4 text-indigo-500 group-hover:scale-105 transition-transform" />
                   Add Catalog Product
                 </span>
                 <ArrowUpRight className="h-3.5 w-3.5 text-slate-400 group-hover:text-indigo-600 transition-colors" />
-              </button>
+              </div>
             </Link>
 
             <Link href="/admin/templates" className="block group">
-              <button className="w-full inline-flex items-center justify-between px-4 py-2.5 rounded-xl border border-slate-200/60 bg-white hover:border-indigo-600 hover:bg-slate-50/50 hover:shadow-sm text-xs font-semibold text-slate-700 transition-all duration-200 cursor-pointer">
+              <div className="w-full inline-flex items-center justify-between px-4 py-2.5 rounded-xl border border-slate-200/60 bg-white hover:border-indigo-600 hover:bg-slate-50/50 hover:shadow-sm text-xs font-semibold text-slate-700 transition-all duration-200 cursor-pointer">
                 <span className="flex items-center gap-2.5">
                   <Mail className="h-4 w-4 text-indigo-500 group-hover:scale-105 transition-transform" />
                   Edit Mail Templates
                 </span>
                 <ArrowUpRight className="h-3.5 w-3.5 text-slate-400 group-hover:text-indigo-600 transition-colors" />
-              </button>
+              </div>
             </Link>
 
             <Link href="/admin/settings" className="block group">
-              <button className="w-full inline-flex items-center justify-between px-4 py-2.5 rounded-xl border border-slate-200/60 bg-white hover:border-indigo-600 hover:bg-slate-50/50 hover:shadow-sm text-xs font-semibold text-slate-700 transition-all duration-200 cursor-pointer">
+              <div className="w-full inline-flex items-center justify-between px-4 py-2.5 rounded-xl border border-slate-200/60 bg-white hover:border-indigo-600 hover:bg-slate-50/50 hover:shadow-sm text-xs font-semibold text-slate-700 transition-all duration-200 cursor-pointer">
                 <span className="flex items-center gap-2.5">
                   <Settings className="h-4 w-4 text-indigo-500 group-hover:scale-105 transition-transform" />
                   Stripe & SMTP Settings
                 </span>
                 <ArrowUpRight className="h-3.5 w-3.5 text-slate-400 group-hover:text-indigo-600 transition-colors" />
-              </button>
+              </div>
             </Link>
           </div>
         </div>
@@ -170,7 +170,7 @@ export function AdminDashboardClient({ metrics }: AdminDashboardClientProps) {
       {/* 3. Recent Orders Table */}
       <div className="rounded-2xl border border-slate-200/50 bg-white p-6 shadow-[0_8px_30px_rgb(0,0,0,0.015)] space-y-4">
         <div>
-          <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Recent Checkouts</h3>
+          <h3 className="text-xs font-bold text-slate-800 capitalize tracking-wider">Recent Checkouts</h3>
           <p className="text-[10px] text-slate-400 mt-0.5">Overview of the last 5 registered customer purchases</p>
         </div>
 
@@ -219,7 +219,7 @@ export function AdminDashboardClient({ metrics }: AdminDashboardClientProps) {
                       </TableCell>
                       <TableCell className="font-bold text-slate-800 text-xs py-3">${order.total.toFixed(2)}</TableCell>
                       <TableCell className="py-3 pr-4">
-                        <Badge variant={badgeVariants[order.status] || 'warning'} className="uppercase text-[9px] tracking-wider font-extrabold px-2 py-0.5 rounded-md">
+                        <Badge variant={badgeVariants[order.status] || 'warning'} className="capitalize text-[9px] tracking-wider font-bold px-2 py-0.5 rounded-md">
                           {order.status}
                         </Badge>
                       </TableCell>

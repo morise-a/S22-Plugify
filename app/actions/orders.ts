@@ -19,7 +19,10 @@ export interface CheckoutBillingInput {
 
 interface CheckoutItem {
   id: string; // Product UUID
+  variantId?: string; // Selected Variant UUID
   quantity: number;
+  billingCycle?: 'monthly' | 'yearly';
+  durationMonths?: number;
 }
 
 // Flat tax rate and Stripe transaction fees
@@ -62,6 +65,21 @@ export async function createPaymentIntentAction(
     return { success: false, error: 'Failed to retrieve products from database.' };
   }
 
+  // 1b. Fetch variants if referenced
+  const variantIds = items.map((i) => i.variantId).filter(Boolean) as string[];
+  let dbVariants: any[] = [];
+  if (variantIds.length > 0) {
+    const { data: vData, error: vError } = await supabase
+      .from('product_variants')
+      .select('*')
+      .in('id', variantIds);
+    if (vError) {
+      console.error('Failed to retrieve variants:', vError);
+      return { success: false, error: 'Failed to retrieve product variants.' };
+    }
+    dbVariants = vData || [];
+  }
+
   // 2. Perform server-side calculation of subtotal, tax, processing fee, and total
   let subtotal = 0;
   const itemDetails: { id: string; name: string; price: number; quantity: number }[] = [];
@@ -71,11 +89,35 @@ export async function createPaymentIntentAction(
     if (!dbProduct || !dbProduct.is_active) {
       return { success: false, error: `Product not found or inactive: ${item.id}` };
     }
-    subtotal += Number(dbProduct.price) * item.quantity;
+
+    let price = Number(dbProduct.price);
+    let displayName = dbProduct.name;
+
+    if (item.variantId) {
+      const dbVariant = dbVariants.find((v) => v.id === item.variantId && v.product_id === item.id);
+      if (!dbVariant) {
+        return { success: false, error: `Variant not found: ${item.variantId}` };
+      }
+      price = Number(dbVariant.price);
+      displayName = `${dbProduct.name} - ${dbVariant.name}`;
+    }
+
+    // Apply billing cycle price multiplier and format display name
+    const months = item.billingCycle === 'yearly' ? 12 : (item.durationMonths || 1);
+    const cycleLabel = item.billingCycle === 'yearly' ? 'Yearly - 12 Months' : `Monthly - ${months} Month${months > 1 ? 's' : ''}`;
+    displayName = `${displayName} (${cycleLabel})`;
+
+    if (item.billingCycle === 'yearly') {
+      price = price * 10; // 2 months free discount
+    } else {
+      price = price * months;
+    }
+
+    subtotal += price * item.quantity;
     itemDetails.push({
       id: dbProduct.id,
-      name: dbProduct.name,
-      price: Number(dbProduct.price),
+      name: displayName,
+      price: price,
       quantity: item.quantity,
     });
   }
@@ -299,6 +341,56 @@ export async function getOrderDetailsAction(identifier: string) {
 }
 
 /**
+ * Retrieve downloadable products for a paid order (used by real-time client verification).
+ */
+export async function getOrderDownloadableProductsAction(orderNumber: string) {
+  const supabase = await createActionClient();
+
+  const { data: order, error } = await supabase
+    .from('orders')
+    .select(`
+      id,
+      status,
+      order_items (
+        product_id
+      )
+    `)
+    .eq('order_number', orderNumber)
+    .maybeSingle();
+
+  if (error || !order) {
+    return { success: false, status: 'not_found', products: [] };
+  }
+
+  if (order.status !== 'paid') {
+    return { success: true, status: order.status, products: [] };
+  }
+
+  const productIds = order.order_items?.map((item: any) => item.product_id).filter(Boolean) || [];
+  if (productIds.length === 0) {
+    return { success: true, status: 'paid', products: [] };
+  }
+
+  const { data: products } = await supabase
+    .from('products')
+    .select('id, name, plugin_file_url')
+    .in('id', productIds);
+
+  const downloadableProducts = (products || [])
+    .filter((p: any) => p.plugin_file_url)
+    .map((p: any) => ({
+      name: p.name,
+      url: p.plugin_file_url,
+    }));
+
+  return {
+    success: true,
+    status: 'paid',
+    products: downloadableProducts,
+  };
+}
+
+/**
  * Verifies a coupon code server-side and returns discount percent.
  */
 export async function verifyCouponAction(code: string) {
@@ -323,4 +415,54 @@ export async function getPublicStripePublishableKeyAction() {
     .single();
 
   return data?.publishable_key || process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '';
+}
+
+/**
+ * Updates a domain slot configured by the user.
+ */
+export async function updatePurchasedDomainAction(domainId: string, domainName: string) {
+  const supabase = await createActionClient();
+
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: 'Unauthorized.' };
+
+  const trimmedDomain = domainName.trim().toLowerCase();
+  if (!trimmedDomain) {
+    return { success: false, error: 'Domain name cannot be empty.' };
+  }
+
+  // Basic domain check: letters, digits, dots, hyphens or localhost
+  const isValidDomainOrLocalhost = (val: string) => {
+    const clean = val.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0].split(':')[0].trim().toLowerCase();
+    if (clean === 'localhost') return true;
+    const ipRegex = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/;
+    if (ipRegex.test(clean)) return true;
+    const domainRegex = /^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9](?:\.[a-zA-Z]{2,})+$/;
+    return domainRegex.test(clean);
+  };
+
+  if (!isValidDomainOrLocalhost(trimmedDomain)) {
+    return { success: false, error: 'Please enter a valid domain name (e.g., example.com or localhost).' };
+  }
+
+  const { data, error } = await supabase
+    .from('purchased_domains')
+    .update({ domain_name: trimmedDomain })
+    .eq('id', domainId)
+    .eq('user_id', user.id)
+    .select();
+
+  if (error) {
+    console.error('Update domain error:', error);
+    return { success: false, error: error.message };
+  }
+
+  if (!data || data.length === 0) {
+    return { success: false, error: 'Domain slot not found or access denied.' };
+  }
+
+  const { revalidatePath } = await import('next/cache');
+  revalidatePath('/customer/dashboard', 'layout');
+
+  return { success: true };
 }

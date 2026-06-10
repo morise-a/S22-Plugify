@@ -11,7 +11,7 @@ export default async function ProductsCatalogPage() {
     <div className="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 lg:px-8 flex-1 flex flex-col justify-start">
       {/* Title Header */}
       <div className="space-y-3 pb-8 border-b border-border/40">
-        <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground">
+        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground">
           Software Catalog
         </h1>
         <p className="text-sm sm:text-base text-muted-foreground max-w-2xl">
@@ -44,7 +44,7 @@ export default async function ProductsCatalogPage() {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 mt-12">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mt-12">
           {products.map((product: Product) => (
             <ProductCard key={product.id} product={product} />
           ))}

@@ -2,16 +2,26 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { ShoppingCart, Star, CheckCircle2, ChevronRight } from 'lucide-react';
+import { ShoppingCart, Star, CheckCircle2, ChevronRight, Globe, Layout, Zap, Sparkles, ShieldCheck } from 'lucide-react';
 import { useCartStore } from '../../lib/store/use-cart-store';
 import { useToast } from '../ui/toast';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
+import { motion } from 'framer-motion';
 
 interface ProductImage {
   id: string;
   image_url: string;
   is_screenshot: boolean;
+}
+
+interface ProductVariant {
+  id: string;
+  product_id: string;
+  name: string;
+  price: number;
+  domain_count?: number;
+  layout_count?: number;
 }
 
 interface Product {
@@ -21,18 +31,24 @@ interface Product {
   price: number;
   is_active: boolean;
   product_images?: ProductImage[];
+  product_variants?: ProductVariant[];
 }
 
 export function ProductDetailClient({ product, relatedProducts }: { product: Product; relatedProducts: Product[] }) {
   const router = useRouter();
   const { showToast } = useToast();
   const addToCart = useCartStore((state) => state.addToCart);
-  
+
   const [selectedImage, setSelectedImage] = React.useState<string>('');
   const [quantity, setQuantity] = React.useState<number>(1);
+  const [selectedVariant, setSelectedVariant] = React.useState<ProductVariant | null>(null);
+  
+  // Billing cycle states
+  const [billingCycle, setBillingCycle] = React.useState<'monthly' | 'yearly'>('monthly');
+  const [durationMonths, setDurationMonths] = React.useState<number>(1);
 
   const images = product.product_images || [];
-  const mainImage = images.find((img) => !img.is_screenshot)?.image_url 
+  const mainImage = images.find((img) => !img.is_screenshot)?.image_url
     || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80';
 
   const screenshots = images.filter((img) => img.is_screenshot);
@@ -41,28 +57,109 @@ export function ProductDetailClient({ product, relatedProducts }: { product: Pro
     setSelectedImage(mainImage);
   }, [mainImage]);
 
+  React.useEffect(() => {
+    if (product.product_variants && product.product_variants.length > 0) {
+      setSelectedVariant(product.product_variants[0]);
+    }
+  }, [product.product_variants]);
+
+  const basePrice = selectedVariant ? Number(selectedVariant.price) : Number(product.price);
+  const displayPrice = billingCycle === 'yearly' ? basePrice * 10 : basePrice * durationMonths;
+
+  const getDates = () => {
+    const today = new Date();
+    const startStr = today.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    
+    const end = new Date(today);
+    const monthsToAdd = billingCycle === 'yearly' ? 12 : durationMonths;
+    end.setMonth(today.getMonth() + monthsToAdd);
+    const endStr = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    
+    return { startStr, endStr };
+  };
+
   const handleAddToCart = () => {
+    const { startStr, endStr } = getDates();
+    const months = billingCycle === 'yearly' ? 12 : durationMonths;
+    const itemVariantName = selectedVariant
+      ? `${selectedVariant.name} (${billingCycle === 'yearly' ? 'Yearly' : `${durationMonths} Month${durationMonths > 1 ? 's' : ''}`})`
+      : `Standard (${billingCycle === 'yearly' ? 'Yearly' : `${durationMonths} Month${durationMonths > 1 ? 's' : ''}`})`;
+
     addToCart({
       id: product.id,
       name: product.name,
-      price: product.price,
+      price: displayPrice,
       image_url: mainImage,
-    }, quantity);
+      variantId: selectedVariant?.id,
+      variantName: itemVariantName,
+      domain_count: selectedVariant?.domain_count,
+      layout_count: selectedVariant?.layout_count,
+      billingCycle,
+      durationMonths: months,
+      startDate: startStr,
+      endDate: endStr,
+    } as any, quantity);
     showToast(
       'Added to Cart!',
       'success',
-      `"${product.name}" (${quantity}x) has been added to your cart.`
+      `"${product.name}" (${itemVariantName}) has been added to your cart.`
     );
   };
 
   const handleBuyNow = () => {
+    const { startStr, endStr } = getDates();
+    const months = billingCycle === 'yearly' ? 12 : durationMonths;
+    const itemVariantName = selectedVariant
+      ? `${selectedVariant.name} (${billingCycle === 'yearly' ? 'Yearly' : `${durationMonths} Month${durationMonths > 1 ? 's' : ''}`})`
+      : `Standard (${billingCycle === 'yearly' ? 'Yearly' : `${durationMonths} Month${durationMonths > 1 ? 's' : ''}`})`;
+
     addToCart({
       id: product.id,
       name: product.name,
-      price: product.price,
+      price: displayPrice,
       image_url: mainImage,
-    }, quantity);
+      variantId: selectedVariant?.id,
+      variantName: itemVariantName,
+      domain_count: selectedVariant?.domain_count,
+      layout_count: selectedVariant?.layout_count,
+      billingCycle,
+      durationMonths: months,
+      startDate: startStr,
+      endDate: endStr,
+    } as any, quantity);
     router.push('/cart');
+  };
+
+  const getVariantFeatures = () => {
+    const defaultFeatures = [
+      'Next.js 16 integration',
+      'Zustand cart persistent store',
+      'Supabase Storage uploads',
+      'Stripe Elements confirmations',
+      'SMTP email template parsing',
+      'Responsive SaaS UI layout',
+    ];
+
+    if (!selectedVariant) return defaultFeatures;
+
+    const extraFeatures = [];
+    if (selectedVariant.domain_count && selectedVariant.domain_count > 1) {
+      extraFeatures.push('Priority Discord support');
+      extraFeatures.push('Pre-configured CI/CD scripts');
+      if (selectedVariant.domain_count >= 100) {
+        extraFeatures.push('Full white-label SaaS rights');
+      } else {
+        extraFeatures.push('Commercial deployment rights');
+      }
+    } else {
+      extraFeatures.push('Standard email support');
+      extraFeatures.push('Personal sandbox license');
+    }
+
+    return [
+      ...defaultFeatures,
+      ...extraFeatures,
+    ];
   };
 
   // Mock Reviews
@@ -85,7 +182,7 @@ export function ProductDetailClient({ product, relatedProducts }: { product: Pro
               className="w-full h-full object-cover transition-all duration-300"
             />
           </div>
-          
+
           {/* Thumbnails Row */}
           {images.length > 1 && (
             <div className="flex gap-3 overflow-x-auto pb-2">
@@ -93,9 +190,8 @@ export function ProductDetailClient({ product, relatedProducts }: { product: Pro
               <button
                 type="button"
                 onClick={() => setSelectedImage(mainImage)}
-                className={`relative h-20 w-24 rounded-lg overflow-hidden border-2 flex-shrink-0 cursor-pointer ${
-                  selectedImage === mainImage ? 'border-primary' : 'border-transparent'
-                }`}
+                className={`relative h-20 w-24 rounded-lg overflow-hidden border-2 flex-shrink-0 cursor-pointer ${selectedImage === mainImage ? 'border-primary' : 'border-transparent'
+                  }`}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={mainImage} alt="Main" className="w-full h-full object-cover" />
@@ -107,9 +203,8 @@ export function ProductDetailClient({ product, relatedProducts }: { product: Pro
                   key={img.id}
                   type="button"
                   onClick={() => setSelectedImage(img.image_url)}
-                  className={`relative h-20 w-24 rounded-lg overflow-hidden border-2 flex-shrink-0 cursor-pointer ${
-                    selectedImage === img.image_url ? 'border-primary' : 'border-transparent'
-                  }`}
+                  className={`relative h-20 w-24 rounded-lg overflow-hidden border-2 flex-shrink-0 cursor-pointer ${selectedImage === img.image_url ? 'border-primary' : 'border-transparent'
+                    }`}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={img.image_url} alt="Screenshot" className="w-full h-full object-cover" />
@@ -122,7 +217,7 @@ export function ProductDetailClient({ product, relatedProducts }: { product: Pro
         {/* Right Column: Information & Actions */}
         <div className="space-y-6">
           <div className="space-y-2">
-            <h1 className="text-3xl font-extrabold tracking-tight text-foreground">{product.name}</h1>
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">{product.name}</h1>
             <div className="flex items-center gap-2">
               <div className="flex text-amber-500">
                 {[1, 2, 3, 4, 5].map((s) => (
@@ -134,8 +229,116 @@ export function ProductDetailClient({ product, relatedProducts }: { product: Pro
             </div>
           </div>
 
-          <div className="text-3xl font-extrabold text-foreground">
-            ${product.price}
+          <div className="text-3xl font-bold text-foreground">
+            ${displayPrice.toFixed(2)}
+          </div>
+
+          {product.product_variants && product.product_variants.length > 0 && (
+            <div className="space-y-3 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800/60">
+              <h3 className="text-xs font-bold text-slate-500 capitalize tracking-wider">Select License Variant</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {product.product_variants.map((v) => {
+                  const isSelected = selectedVariant?.id === v.id;
+                  return (
+                    <button
+                      key={v.id}
+                      type="button"
+                      onClick={() => setSelectedVariant(v)}
+                      className={`flex flex-col text-left p-3.5 rounded-xl border text-xs cursor-pointer transition-all duration-150 ${isSelected
+                        ? 'border-indigo-650 bg-indigo-50/50 dark:bg-indigo-950/20 text-indigo-900 dark:text-indigo-200 ring-1 ring-indigo-650'
+                        : 'border-slate-200 dark:border-slate-800 bg-card hover:bg-slate-100/50 dark:hover:bg-slate-800/40 text-slate-700 dark:text-slate-300'
+                        }`}
+                    >
+                      <span className="font-bold mb-1">{v.name}</span>
+                      <span className="font-bold text-[13px]">${Number(v.price).toFixed(2)}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Billing Cycle & Duration Configuration */}
+          <div className="space-y-4 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800/60">
+            <h3 className="text-xs font-bold text-slate-500 capitalize tracking-wider">Select Billing Cycle</h3>
+            
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setBillingCycle('monthly');
+                  setDurationMonths(1);
+                }}
+                className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl border text-xs font-bold transition-all duration-200 cursor-pointer focus:outline-none ${
+                  billingCycle === 'monthly'
+                    ? 'border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/20 text-indigo-900 dark:text-indigo-200 ring-1 ring-indigo-600'
+                    : 'border-slate-200 dark:border-slate-800 bg-card hover:bg-slate-100/50 dark:hover:bg-slate-800/40 text-slate-700 dark:text-slate-300'
+                }`}
+              >
+                Monthly
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setBillingCycle('yearly');
+                  setDurationMonths(12);
+                }}
+                className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl border text-xs font-bold transition-all duration-200 cursor-pointer focus:outline-none ${
+                  billingCycle === 'yearly'
+                    ? 'border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/20 text-indigo-900 dark:text-indigo-200 ring-1 ring-indigo-600'
+                    : 'border-slate-200 dark:border-slate-800 bg-card hover:bg-slate-100/50 dark:hover:bg-slate-800/40 text-slate-700 dark:text-slate-300'
+                }`}
+              >
+                Yearly (2 Months Free!)
+              </button>
+            </div>
+
+            {/* If monthly, show number of months input */}
+            {billingCycle === 'monthly' && (
+              <div className="flex items-center justify-between pt-2 border-t border-slate-200/50 dark:border-slate-800/50">
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Billing Duration:</span>
+                <div className="flex items-center border border-slate-200 dark:border-slate-800 bg-card rounded-xl overflow-hidden h-9 shadow-inner">
+                  <button
+                    type="button"
+                    onClick={() => setDurationMonths(Math.max(1, durationMonths - 1))}
+                    className="px-3 h-full hover:bg-secondary/40 text-slate-500 hover:text-slate-800 cursor-pointer font-bold text-sm"
+                  >
+                    -
+                  </button>
+                  <span className="px-4 text-xs font-bold text-slate-800 dark:text-slate-200 font-mono w-14 text-center">
+                    {durationMonths} Mo.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setDurationMonths(Math.min(24, durationMonths + 1))}
+                    className="px-3 h-full hover:bg-secondary/40 text-slate-500 hover:text-slate-800 cursor-pointer font-bold text-sm"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Dates preview banner */}
+            <div className="p-3.5 bg-indigo-500/5 dark:bg-indigo-500/10 border border-indigo-100/70 dark:border-indigo-900/40 rounded-xl space-y-1.5 text-left">
+              <span className="text-[9px] font-extrabold text-indigo-600 dark:text-indigo-400 tracking-wider uppercase block">Subscription License Period</span>
+              <div className="flex justify-between items-center text-xs font-bold text-slate-700 dark:text-slate-300">
+                <div className="flex flex-col">
+                  <span className="text-[9px] text-slate-450 font-normal">Start Date</span>
+                  <span className="font-semibold text-slate-800 dark:text-slate-200">{getDates().startStr}</span>
+                </div>
+                <div className="h-4 w-px bg-indigo-150 dark:bg-indigo-900" />
+                <div className="flex flex-col text-right">
+                  <span className="text-[9px] text-slate-450 font-normal">Renewal / Expiry Date</span>
+                  <span className="font-semibold text-slate-800 dark:text-slate-200">{getDates().endStr}</span>
+                </div>
+              </div>
+              <p className="text-[10px] text-indigo-600/80 dark:text-indigo-400/80 font-medium pt-1">
+                {billingCycle === 'yearly'
+                  ? '🛡️ Full 1-year updates & license authorization (includes 2 months free discount).'
+                  : `🛡️ Full ${durationMonths} month${durationMonths > 1 ? 's' : ''} updates & support renewals.`}
+              </p>
+            </div>
           </div>
 
           <hr className="border-border/60" />
@@ -147,30 +350,94 @@ export function ProductDetailClient({ product, relatedProducts }: { product: Pro
             </p>
           </div>
 
-          <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-foreground">Included Features</h3>
-            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-muted-foreground">
-              {[
-                'Next.js 16 integration',
-                'Zustand cart persistent store',
-                'Supabase Storage uploads',
-                'Stripe Elements confirmations',
-                'SMTP email template parsing',
-                'Responsive SaaS UI layout',
-              ].map((feat, idx) => (
-                <li key={idx} className="flex items-center gap-2">
-                  <CheckCircle2 className="h-4 w-4 text-primary" />
-                  <span>{feat}</span>
-                </li>
-              ))}
-            </ul>
+          {/* Selected Variant Specifications & Features */}
+          <div className="space-y-5">
+            <div className="flex items-center justify-between border-b border-border/40 pb-2">
+              <h3 className="text-sm font-semibold text-foreground">Included Features</h3>
+              {selectedVariant && (
+                <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 px-2.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-150 dark:border-indigo-900/50">
+                  {selectedVariant.name}
+                </span>
+              )}
+            </div>
+
+            {selectedVariant && (
+              <motion.div
+                key={selectedVariant.id}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3, ease: 'easeOut' }}
+                className="grid grid-cols-1 sm:grid-cols-3 gap-3"
+              >
+                {/* Domain Card */}
+                <motion.div
+                  whileHover={{ y: -2 }}
+                  className="relative overflow-hidden p-3 rounded-xl border border-indigo-100/70 dark:border-indigo-950/40 bg-gradient-to-br from-indigo-500/[0.02] to-purple-500/[0.02] dark:from-indigo-950/10 dark:to-purple-950/10 shadow-[0_2px_8px_rgba(99,102,241,0.02)]"
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="p-1 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                      <Globe className="h-3.5 w-3.5" />
+                    </div>
+                    <span className="text-[9px] font-bold text-indigo-600/85 dark:text-indigo-400/85 uppercase tracking-wider">Deployments</span>
+                  </div>
+                  <div className="text-sm font-bold text-foreground">
+                    {selectedVariant.domain_count && selectedVariant.domain_count >= 100 ? 'Unlimited' : selectedVariant.domain_count || 1}
+                  </div>
+                  <div className="text-[9px] text-muted-foreground mt-0.5 leading-snug">
+                    {selectedVariant.domain_count && selectedVariant.domain_count >= 100
+                      ? 'Deploy on unlimited sites'
+                      : `Up to ${selectedVariant.domain_count || 1} domain${Number(selectedVariant.domain_count) > 1 ? 's' : ''}`}
+                  </div>
+                </motion.div>
+
+                {/* Layout Card */}
+                <motion.div
+                  whileHover={{ y: -2 }}
+                  className="relative overflow-hidden p-3 rounded-xl border border-emerald-100/70 dark:border-emerald-950/40 bg-gradient-to-br from-emerald-500/[0.02] to-teal-500/[0.02] dark:from-emerald-950/10 dark:to-teal-950/10 shadow-[0_2px_8px_rgba(16,185,129,0.02)]"
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="p-1 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                      <Layout className="h-3.5 w-3.5" />
+                    </div>
+                    <span className="text-[9px] font-bold text-emerald-600/85 dark:text-emerald-400/85 uppercase tracking-wider">UI Templates</span>
+                  </div>
+                  <div className="text-sm font-bold text-foreground">
+                    {selectedVariant.layout_count || 1} Layout{Number(selectedVariant.layout_count) > 1 ? 's' : ''}
+                  </div>
+                  <div className="text-[9px] text-muted-foreground mt-0.5 leading-snug">
+                    Premium pre-built dashboard & landing layouts
+                  </div>
+                </motion.div>
+
+                {/* Support/Tier Card */}
+                <motion.div
+                  whileHover={{ y: -2 }}
+                  className="relative overflow-hidden p-3 rounded-xl border border-amber-100/70 dark:border-amber-950/40 bg-gradient-to-br from-amber-500/[0.02] to-orange-500/[0.02] dark:from-amber-950/10 dark:to-orange-950/10 shadow-[0_2px_8px_rgba(245,158,11,0.02)]"
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="p-1 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                      <Zap className="h-3.5 w-3.5" />
+                    </div>
+                    <span className="text-[9px] font-bold text-amber-600/85 dark:text-amber-400/85 uppercase tracking-wider">Support</span>
+                  </div>
+                  <div className="text-sm font-bold text-foreground">
+                    {selectedVariant.domain_count && selectedVariant.domain_count > 1 ? 'Priority' : 'Standard'}
+                  </div>
+                  <div className="text-[9px] text-muted-foreground mt-0.5 leading-snug">
+                    {selectedVariant.domain_count && selectedVariant.domain_count > 1
+                      ? 'Direct developer channel'
+                      : 'Standard ticket queue'}
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
           </div>
 
           <hr className="border-border/60" />
 
           {/* Quantity and Actions */}
           <div className="space-y-4">
-            <div className="flex items-center gap-4">
+            {/* <div className="flex items-center gap-4">
               <span className="text-sm font-medium text-foreground/80">Quantity:</span>
               <div className="flex items-center border border-input bg-card rounded-lg overflow-hidden h-10">
                 <button
@@ -189,7 +456,7 @@ export function ProductDetailClient({ product, relatedProducts }: { product: Pro
                   +
                 </button>
               </div>
-            </div>
+            </div> */}
 
             <div className="flex gap-4 pt-2">
               <Button
@@ -242,7 +509,7 @@ export function ProductDetailClient({ product, relatedProducts }: { product: Pro
           <h3 className="text-xl font-bold text-foreground">Related Products</h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
             {relatedProducts.map((rel) => {
-              const relImg = rel.product_images?.find((img) => !img.is_screenshot)?.image_url 
+              const relImg = rel.product_images?.find((img) => !img.is_screenshot)?.image_url
                 || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80';
               return (
                 <div

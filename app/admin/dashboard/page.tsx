@@ -56,7 +56,7 @@ export default async function AdminDashboardPage() {
   return (
     <div className="space-y-8 flex flex-col justify-start">
       <div>
-        <h1 className="text-3xl font-extrabold tracking-tight text-foreground">
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">
           Analytics Dashboard
         </h1>
         <p className="text-sm text-muted-foreground mt-1">

@@ -3,10 +3,18 @@ import { persist } from 'zustand/middleware';
 
 export interface CartItem {
   id: string; // Product UUID
+  variantId?: string; // Selected Variant UUID
   name: string;
   price: number;
   image_url?: string;
   quantity: number;
+  variantName?: string;
+  domain_count?: number;
+  layout_count?: number;
+  billingCycle?: 'monthly' | 'yearly';
+  durationMonths?: number;
+  startDate?: string;
+  endDate?: string;
 }
 
 interface CartState {
@@ -14,8 +22,8 @@ interface CartState {
   couponCode: string | null;
   couponDiscountPercent: number;
   addToCart: (item: Omit<CartItem, 'quantity'>, quantity?: number) => void;
-  removeFromCart: (productId: string) => void;
-  updateQuantity: (productId: string, quantity: number) => void;
+  removeFromCart: (productId: string, variantId?: string) => void;
+  updateQuantity: (productId: string, quantity: number, variantId?: string) => void;
   applyCoupon: (code: string) => { success: boolean; message: string };
   removeCoupon: () => void;
   clearCart: () => void;
@@ -48,11 +56,15 @@ export const useCartStore = create<CartState>()(
 
       addToCart: (item, quantity = 1) => {
         set((state) => {
-          const existingItem = state.items.find((i) => i.id === item.id);
+          const existingItem = state.items.find(
+            (i) => i.id === item.id && i.variantId === item.variantId
+          );
           if (existingItem) {
             return {
               items: state.items.map((i) =>
-                i.id === item.id ? { ...i, quantity: i.quantity + quantity } : i
+                i.id === item.id && i.variantId === item.variantId
+                  ? { ...i, quantity: i.quantity + quantity }
+                  : i
               ),
             };
           }
@@ -60,20 +72,24 @@ export const useCartStore = create<CartState>()(
         });
       },
 
-      removeFromCart: (productId) => {
+      removeFromCart: (productId, variantId) => {
         set((state) => ({
-          items: state.items.filter((i) => i.id !== productId),
+          items: state.items.filter(
+            (i) => !(i.id === productId && i.variantId === variantId)
+          ),
         }));
       },
 
-      updateQuantity: (productId, quantity) => {
+      updateQuantity: (productId, quantity, variantId) => {
         if (quantity <= 0) {
-          get().removeFromCart(productId);
+          get().removeFromCart(productId, variantId);
           return;
         }
         set((state) => ({
           items: state.items.map((i) =>
-            i.id === productId ? { ...i, quantity } : i
+            i.id === productId && i.variantId === variantId
+              ? { ...i, quantity }
+              : i
           ),
         }));
       },

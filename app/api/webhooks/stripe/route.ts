@@ -88,7 +88,7 @@ export async function POST(request: Request) {
     }
 
     // Generate a secure license key
-    const licenseKey = `LIC-${crypto.randomBytes(16).toString('hex').toUpperCase().match(/.{4}/g)?.join('-')}`;
+    const licenseKey = `S22-${crypto.randomBytes(16).toString('hex').toUpperCase().match(/.{4}/g)?.join('-')}`;
 
     // 1. Update Order Status & License Key
     const { error: orderUpdateErr } = await supabaseAdmin
@@ -143,7 +143,18 @@ export async function POST(request: Request) {
         if (name.includes('subscription') || name.includes('plan') || name.includes('pro') || name.includes('starter') || name.includes('enterprise')) {
           const startDate = new Date();
           const endDate = new Date();
-          endDate.setDate(startDate.getDate() + 30); // 30-day billing period
+          
+          let durationMonths = 1;
+          if (name.includes('yearly')) {
+            durationMonths = 12;
+          } else {
+            const match = name.match(/monthly - (\d+) month/);
+            if (match) {
+              durationMonths = parseInt(match[1]);
+            }
+          }
+          
+          endDate.setMonth(startDate.getMonth() + durationMonths);
 
           await supabaseAdmin.from('subscriptions').insert({
             user_id: order.user_id,
@@ -152,6 +163,66 @@ export async function POST(request: Request) {
             stripe_subscription_id: `sub_${Math.random().toString(36).substring(2, 9)}`,
             current_period_start: startDate.toISOString(),
             current_period_end: endDate.toISOString(),
+          });
+        }
+
+        // Provision purchased domains slots dynamically using domain_count stored on variant
+        let slotsCount = 1;
+        let variantName = 'Single Domain single layout';
+        let foundVariant = false;
+
+        const nameParts = item.product_name.split(' - ');
+        if (nameParts.length > 1) {
+          const parsedVariantName = nameParts.slice(1).join(' - ').trim();
+          
+          // Look up variant details
+          const { data: pv } = await supabaseAdmin
+            .from('product_variants')
+            .select('domain_count, name')
+            .eq('product_id', item.product_id)
+            .eq('name', parsedVariantName)
+            .maybeSingle();
+
+          if (pv) {
+            slotsCount = pv.domain_count || 1;
+            variantName = pv.name;
+            foundVariant = true;
+          } else {
+            // Case-insensitive/like lookup just in case
+            const { data: pvLike } = await supabaseAdmin
+              .from('product_variants')
+              .select('domain_count, name')
+              .eq('product_id', item.product_id)
+              .ilike('name', `%${parsedVariantName}%`)
+              .limit(1);
+            if (pvLike && pvLike.length > 0) {
+              slotsCount = pvLike[0].domain_count || 1;
+              variantName = pvLike[0].name;
+              foundVariant = true;
+            }
+          }
+        }
+
+        // Legacy/fallback check
+        if (!foundVariant) {
+          const isMulti = name.includes('multiple domain') || name.includes('multiple layout') || name.includes('multi domain');
+          slotsCount = isMulti ? 5 : 1;
+          variantName = isMulti ? 'Multiple domain multiple layout' : 'Single Domain single layout';
+        }
+        
+        const domainsList = order.domain
+          ? order.domain.split(',').map((d: string) => d.trim().toLowerCase()).filter(Boolean)
+          : [];
+
+        for (let i = 0; i < slotsCount; i++) {
+          const domainName = domainsList[i] || null;
+          
+          await supabaseAdmin.from('purchased_domains').insert({
+            user_id: order.user_id,
+            order_id: order.id,
+            product_id: item.product_id,
+            domain_name: domainName,
+            variant_name: variantName,
           });
         }
       }

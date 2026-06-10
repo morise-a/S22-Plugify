@@ -39,7 +39,25 @@ export async function updateSession(request: NextRequest) {
 
   // Refresh user session by calling getUser
   try {
-    await supabase.auth.getUser();
+    const { error } = await supabase.auth.getUser();
+    if (error) {
+      if (
+        error.status === 400 ||
+        error.code?.includes('refresh_token') ||
+        error.message?.toLowerCase().includes('refresh token')
+      ) {
+        const sbCookies = request.cookies.getAll().filter((c) => c.name.startsWith('sb-'));
+        sbCookies.forEach((c) => {
+          request.cookies.delete(c.name);
+        });
+        supabaseResponse = NextResponse.next({
+          request,
+        });
+        sbCookies.forEach((c) => {
+          supabaseResponse.cookies.delete(c.name);
+        });
+      }
+    }
   } catch (err) {
     console.error('Supabase session refresh failed in updateSession:', err);
   }

@@ -17,12 +17,48 @@ import { getStripeClientInstance } from '../../lib/stripe/client';
 import { StripeElementForm } from '../../components/payment/stripe-element-form';
 import { z } from 'zod';
 
+const isValidDomainOrLocalhost = (val: string) => {
+  const clean = val.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0].split(':')[0].trim().toLowerCase();
+  if (clean === 'localhost') return true;
+  const ipRegex = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/;
+  if (ipRegex.test(clean)) return true;
+  const domainRegex = /^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9](?:\.[a-zA-Z]{2,})+$/;
+  return domainRegex.test(clean);
+};
+
 const billingSchema = z.object({
   firstName: z.string().min(1, 'First name is required').max(50),
   lastName: z.string().min(1, 'Last name is required').max(50),
   email: z.string().min(1, 'Email is required').email('Invalid email address'),
   phone: z.string().min(12, 'Phone format: XXXX XXX XXX').max(12).regex(/^\d{4} \d{3} \d{3}$/, 'Must be XXXX XXX XXX'),
-  domain: z.string().min(1, 'Domain name is required').trim().toLowerCase(),
+  domain: z.string()
+    .min(1, 'Domain name is required')
+    .trim()
+    .toLowerCase()
+    .refine((val) => {
+      const items = useCartStore.getState().items;
+      const isMultiDomain = items.some((item) => item.domain_count && item.domain_count > 1);
+      if (!isMultiDomain) {
+        return !val.includes(',');
+      }
+      return true;
+    }, {
+      message: 'Single domain plan only allows a single domain (no commas allowed).'
+    })
+    .refine((val) => {
+      const items = useCartStore.getState().items;
+      const isMultiDomain = items.some((item) => item.domain_count && item.domain_count > 1);
+
+      if (!isMultiDomain) {
+        return isValidDomainOrLocalhost(val);
+      } else {
+        const domains = val.split(',').map(d => d.trim()).filter(Boolean);
+        if (domains.length === 0) return false;
+        return domains.every(d => isValidDomainOrLocalhost(d));
+      }
+    }, {
+      message: 'Please enter valid domain name(s) (e.g. example.com or localhost).'
+    }),
   addressLine1: z.string().min(1, 'Address is required').max(150),
   addressLine2: z.string().max(100).optional(),
   city: z.string().min(1, 'City is required').max(50),
@@ -119,8 +155,14 @@ export default function CheckoutPage() {
 
     setIsSubmittingBilling(true);
 
-    const checkoutItems = items.map((i) => ({ id: i.id, quantity: i.quantity }));
-    
+    const checkoutItems = items.map((i) => ({
+      id: i.id,
+      quantity: i.quantity,
+      variantId: i.variantId,
+      billingCycle: (i as any).billingCycle || 'monthly',
+      durationMonths: (i as any).durationMonths || 1,
+    }));
+
     try {
       const res = await createPaymentIntentAction(checkoutItems, data, couponCode || undefined);
       if (res.success && res.clientSecret && res.orderNumber) {
@@ -151,7 +193,7 @@ export default function CheckoutPage() {
       {/* Header */}
       <div className="border-b border-border/40 pb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-foreground">
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">
             Checkout Flow
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
@@ -209,12 +251,28 @@ export default function CheckoutPage() {
                     />
                   </div>
 
-                  <Input
-                    label="Domain (for License Registration)"
-                    placeholder="example.com"
-                    error={errors.domain?.message}
-                    {...register('domain')}
-                  />
+                  {(() => {
+                    const isMultiDomain = items.some((item) => item.domain_count && item.domain_count > 1);
+                    return (
+                      <div className="space-y-1">
+                        <Input
+                          label={isMultiDomain ? "Domain(s) for License Registration" : "Domain for License Registration"}
+                          placeholder={isMultiDomain ? "example.com or domain1.com, domain2.com" : "example.com"}
+                          error={errors.domain?.message}
+                          {...register('domain')}
+                        />
+                        {isMultiDomain ? (
+                          <p className="text-[10px] text-muted-foreground font-semibold px-1">
+                            You are purchasing a multiple-domain plan. You can register multiple domains by separating them with commas (e.g. <span className="font-mono font-bold text-slate-700 dark:text-slate-355">domain1.com, domain2.com</span>).
+                          </p>
+                        ) : (
+                          <p className="text-[10px] text-muted-foreground font-semibold px-1">
+                            You are purchasing a single-domain plan. Please enter a single valid domain (no commas allowed).
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   <Input
                     label="Address Line 1"
@@ -291,7 +349,7 @@ export default function CheckoutPage() {
                     Connecting to payment gateways...
                   </div>
                 )}
-                
+
                 <div className="flex items-center gap-2 text-xs text-muted-foreground bg-secondary/20 p-3 rounded-lg border border-border/40">
                   <ShieldCheck className="h-4 w-4 text-emerald-500 flex-shrink-0" />
                   <span>Payments are PCI-compliant. Card data is never stored on our servers.</span>
@@ -322,6 +380,9 @@ export default function CheckoutPage() {
                       </div>
                       <div>
                         <h4 className="text-xs font-bold text-foreground line-clamp-1">{item.name}</h4>
+                        {item.variantName && (
+                          <span className="block text-[10px] text-indigo-650 dark:text-indigo-400 font-bold">{item.variantName}</span>
+                        )}
                         <span className="text-[10px] text-muted-foreground">{item.quantity}x @ ${item.price}</span>
                       </div>
                     </div>

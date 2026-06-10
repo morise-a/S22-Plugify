@@ -67,15 +67,17 @@ export function Modal({ isOpen, onClose, title, description, children, footer, s
             className={`relative z-10 w-full ${sizes[size]} overflow-hidden rounded-2xl border border-border bg-card text-foreground shadow-2xl flex flex-col max-h-[85vh]`}
           >
             {/* Header */}
-            <div className="flex items-start justify-between p-6 pb-4 border-b border-border/50 shrink-0">
-              <div className="flex flex-col gap-1 pr-6">
-                {title && <h2 className="text-lg font-semibold leading-none tracking-tight">{title}</h2>}
-                {description && <p className="text-sm text-muted-foreground mt-1">{description}</p>}
+            {(title || description) && (
+              <div className="flex items-start justify-between p-6 pb-4 border-b border-border/50 shrink-0">
+                <div className="flex flex-col gap-1 pr-6">
+                  {title && <h2 className="text-lg font-semibold leading-none tracking-tight">{title}</h2>}
+                  {description && <p className="text-sm text-muted-foreground mt-1">{description}</p>}
+                </div>
               </div>
-              <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 rounded-full absolute top-4 right-4">
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
+            )}
+            <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8 rounded-full absolute top-4 right-4 z-20">
+              <X className="h-4 w-4" />
+            </Button>
 
             {/* Body */}
             <div className="flex-1 overflow-y-auto p-6">

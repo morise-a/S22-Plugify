@@ -21,7 +21,7 @@ const geistMono = Geist_Mono({
 export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
-  title: 'ApexSaaS - Premium Store',
+  title: 'Solution22 - Premium Store',
   description: 'Enterprise-grade SaaS eCommerce platform powered by Next.js & Supabase.',
 };
 

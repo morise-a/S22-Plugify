@@ -27,7 +27,7 @@ export function AdminSidebar({ user }: SidebarProps) {
     { label: 'Dashboard', icon: <LayoutDashboard className="h-5 w-5" />, href: '/admin/dashboard' },
     { label: 'Products Catalog', icon: <ShoppingBag className="h-5 w-5" />, href: '/admin/products' },
     { label: 'Mail Templates', icon: <Mail className="h-5 w-5" />, href: '/admin/templates' },
-    { label: 'Settings Panel', icon: <Settings className="h-5 w-5" />, href: '/admin/settings' },
+    { label: 'Settings', icon: <Settings className="h-5 w-5" />, href: '/admin/settings' },
   ];
 
   const handleLogout = async () => {
@@ -51,9 +51,9 @@ export function AdminSidebar({ user }: SidebarProps) {
     <>
       {/* Mobile Top Navbar */}
       <header className="md:hidden border-b border-slate-100 bg-white/95 backdrop-blur-md px-6 py-4 flex justify-between items-center sticky top-0 z-40">
-        <Link href="/admin/dashboard" className="font-extrabold text-slate-900 text-lg tracking-tight flex items-center gap-2">
+        <Link href="/admin/dashboard" className="font-bold text-slate-900 text-lg tracking-tight flex items-center gap-2">
           <span className="h-7 w-7 bg-indigo-600 text-white rounded-lg flex items-center justify-center font-bold text-sm shadow-md shadow-indigo-600/20">A</span>
-          ApexSaaS <span className="text-[9px] bg-indigo-50 text-indigo-600 border border-indigo-100 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Admin</span>
+          Solution22 <span className="text-[9px] bg-indigo-50 text-indigo-600 border border-indigo-100 px-2 py-0.5 rounded-full font-bold capitalize tracking-wider">Admin</span>
         </Link>
         <button
           onClick={() => setMobileOpen(!mobileOpen)}
@@ -74,7 +74,7 @@ export function AdminSidebar({ user }: SidebarProps) {
               <div className="flex justify-between items-center">
                 <Link href="/admin/dashboard" className="text-lg font-bold tracking-tight text-slate-900 flex items-center gap-2">
                   <span className="h-7 w-7 bg-indigo-600 text-white rounded-lg flex items-center justify-center font-bold text-sm shadow-md shadow-indigo-600/20">A</span>
-                  ApexSaaS <span className="text-[8px] bg-indigo-50 text-indigo-600 border border-indigo-100 px-1.5 py-0.5 rounded-full font-bold">PRO</span>
+                  Solution22 <span className="text-[8px] bg-indigo-50 text-indigo-600 border border-indigo-100 px-1.5 py-0.5 rounded-full font-bold">PRO</span>
                 </Link>
                 <button onClick={() => setMobileOpen(false)} className="p-1.5 hover:bg-slate-50 rounded-lg text-slate-400 hover:text-slate-600">
                   <X className="h-4 w-4" />
@@ -90,8 +90,8 @@ export function AdminSidebar({ user }: SidebarProps) {
                       href={item.href}
                       onClick={() => setMobileOpen(false)}
                       className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 ${isActive
-                          ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/15'
-                          : 'text-slate-600 hover:text-indigo-600 hover:bg-indigo-50/40'
+                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/15'
+                        : 'text-slate-600 hover:text-indigo-600 hover:bg-indigo-50/40'
                         }`}
                     >
                       <div className={isActive ? 'text-white' : 'text-slate-400'}>
@@ -116,12 +116,10 @@ export function AdminSidebar({ user }: SidebarProps) {
               </div>
 
               <div className="flex flex-col gap-2">
-                <Link href="/" className="w-full">
-                  <Button variant="outline" size="sm" className="w-full justify-center gap-1.5 text-xs h-9 border-slate-200/80 text-slate-600 hover:bg-slate-50">
-                    <ArrowLeft className="h-3.5 w-3.5" />
-                    Frontend Store
-                  </Button>
-                </Link>
+                <Button href="/" variant="outline" size="sm" className="w-full justify-center gap-1.5 text-xs h-9 border-slate-200/80 text-slate-600 hover:bg-slate-50">
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  Frontend Store
+                </Button>
                 <Button variant="destructive" size="sm" onClick={handleLogout} className="w-full justify-center gap-1.5 text-xs h-9 bg-red-50 text-red-600 hover:bg-red-600 hover:text-white border-0">
                   <LogOut className="h-3.5 w-3.5" />
                   Logout Session
@@ -137,9 +135,8 @@ export function AdminSidebar({ user }: SidebarProps) {
         <div className="space-y-10">
           <div>
             <Link href="/admin/dashboard" className="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2 hover:scale-[0.98] transition-transform duration-200">
-              <span className="h-8 w-8 bg-indigo-600 text-white rounded-xl flex items-center justify-center font-bold text-base shadow-md shadow-indigo-600/25">A</span>
-              <span>ApexSaaS</span>
-              <span className="text-[9px] bg-indigo-50 text-indigo-600 border border-indigo-100 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Pro</span>
+              <span className="h-8 w-8 bg-indigo-600 text-white rounded-xl flex items-center justify-center font-bold text-base shadow-md shadow-indigo-600/25">S</span>
+              <span>Solution22</span>
             </Link>
           </div>
 
@@ -151,8 +148,8 @@ export function AdminSidebar({ user }: SidebarProps) {
                   key={idx}
                   href={item.href}
                   className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 group ${isActive
-                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/15 scale-[1.01]'
-                      : 'text-slate-500 hover:text-indigo-600 hover:bg-indigo-50/30'
+                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/15 scale-[1.01]'
+                    : 'text-slate-500 hover:text-indigo-600 hover:bg-indigo-50/30'
                     }`}
                 >
                   <div className={`transition-transform duration-300 group-hover:scale-105 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-indigo-600'}`}>
@@ -178,12 +175,10 @@ export function AdminSidebar({ user }: SidebarProps) {
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Link href="/" className="w-full">
-              <Button variant="outline" size="sm" className="w-full justify-center gap-1.5 text-xs h-8 border-slate-200 text-slate-600 hover:bg-slate-50">
-                <ArrowLeft className="h-3.5 w-3.5" />
-                Frontend Store
-              </Button>
-            </Link>
+            <Button href="/" variant="outline" size="sm" className="w-full justify-center gap-1.5 text-xs h-8 border-slate-200 text-slate-600 hover:bg-slate-50">
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Frontend Store
+            </Button>
             <Button variant="destructive" size="sm" onClick={handleLogout} className="w-full justify-center gap-1.5 text-xs h-8 bg-red-50/50 text-red-600 hover:bg-red-600 hover:text-white border-0">
               <LogOut className="h-3.5 w-3.5" />
               Sign Out

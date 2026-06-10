@@ -9,11 +9,12 @@ import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { useToast } from '../../components/ui/toast';
 import { Card, CardContent } from '../../components/ui/card';
+import { ConfirmationModal } from '../../components/ui/confirmation-modal';
 
 export default function CartPage() {
   const router = useRouter();
   const { showToast } = useToast();
-  
+
   const {
     items,
     couponCode,
@@ -26,6 +27,7 @@ export default function CartPage() {
   } = useCartStore();
 
   const [couponInput, setCouponInput] = React.useState('');
+  const [deleteItem, setDeleteItem] = React.useState<{ id: string; variantId?: string; name: string } | null>(null);
 
   const { subtotal, discount, processingFee, tax, total } = getTotals();
 
@@ -58,12 +60,10 @@ export default function CartPage() {
             Add items from our software catalog to begin the checkout process.
           </p>
         </div>
-        <Link href="/products">
-          <Button className="inline-flex items-center gap-2">
-            <ArrowLeft className="h-4 w-4" />
-            Continue Shopping
-          </Button>
-        </Link>
+        <Button href="/products" className="inline-flex items-center gap-2">
+          <ArrowLeft className="h-4 w-4" />
+          Continue Shopping
+        </Button>
       </div>
     );
   }
@@ -71,7 +71,7 @@ export default function CartPage() {
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 lg:px-8 flex-1 flex flex-col gap-8">
       <div className="border-b border-border/40 pb-6">
-        <h1 className="text-3xl font-extrabold tracking-tight text-foreground">
+        <h1 className="text-3xl font-bold text-foreground">
           Shopping Cart
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
@@ -92,13 +92,16 @@ export default function CartPage() {
                   </div>
                   <div>
                     <h3 className="text-sm font-bold text-foreground line-clamp-1">{item.name}</h3>
+                    {item.variantName && (
+                      <span className="block text-[10px] text-indigo-650 dark:text-indigo-400 font-bold mt-0.5">{item.variantName}</span>
+                    )}
                     <p className="text-xs text-muted-foreground mt-0.5">${item.price} each</p>
                   </div>
                 </div>
 
                 <div className="flex items-center justify-between sm:justify-end gap-6 w-full sm:w-auto">
                   {/* Quantity Control */}
-                  <div className="flex items-center border border-input bg-card rounded-lg overflow-hidden h-9">
+                  {/* <div className="flex items-center border border-input bg-card rounded-lg overflow-hidden h-9">
                     <button
                       type="button"
                       onClick={() => updateQuantity(item.id, item.quantity - 1)}
@@ -114,7 +117,7 @@ export default function CartPage() {
                     >
                       +
                     </button>
-                  </div>
+                  </div> */}
 
                   <div className="text-right">
                     <span className="text-sm font-bold text-foreground block">
@@ -122,10 +125,7 @@ export default function CartPage() {
                     </span>
                     <button
                       type="button"
-                      onClick={() => {
-                        removeFromCart(item.id);
-                        showToast('Item Removed', 'info', `Removed "${item.name}" from your cart.`);
-                      }}
+                      onClick={() => setDeleteItem({ id: item.id, variantId: item.variantId, name: item.name })}
                       className="text-xs text-destructive hover:underline inline-flex items-center gap-1 mt-1 cursor-pointer"
                     >
                       <Trash2 className="h-3 w-3" />
@@ -147,8 +147,8 @@ export default function CartPage() {
         <div className="space-y-6">
           <Card className="border-border/60 bg-card shadow-md">
             <CardContent className="p-6 space-y-6">
-              <h2 className="text-lg font-bold text-foreground">Order Summary</h2>
-              
+              <h2 className="text-lg font-bold text-foreground leading-none">Order Summary</h2>
+
               <div className="space-y-3.5 text-sm">
                 <div className="flex justify-between text-muted-foreground">
                   <span>Subtotal</span>
@@ -222,6 +222,23 @@ export default function CartPage() {
           </div>
         </div>
       </div>
+
+      <ConfirmationModal
+        isOpen={deleteItem !== null}
+        onClose={() => setDeleteItem(null)}
+        onConfirm={() => {
+          if (deleteItem) {
+            removeFromCart(deleteItem.id, deleteItem.variantId);
+            showToast('Item Removed', 'info', `Removed "${deleteItem.name}" from your cart.`);
+            setDeleteItem(null);
+          }
+        }}
+        title="Remove Item from Cart?"
+        message="Are you sure you want to remove this item from your shopping cart?"
+        confirmText="Yes, remove"
+        cancelText="Cancel"
+        variant="destructive"
+      />
     </div>
   );
 }

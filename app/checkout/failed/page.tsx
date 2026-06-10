@@ -20,7 +20,7 @@ export default async function CheckoutFailedPage(props: FailedPageProps) {
       </div>
 
       <div className="space-y-2">
-        <h1 className="text-3xl font-extrabold tracking-tight text-foreground">
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">
           Payment Failed
         </h1>
         <p className="text-sm text-muted-foreground max-w-xs mx-auto leading-relaxed">
@@ -42,18 +42,14 @@ export default async function CheckoutFailedPage(props: FailedPageProps) {
       </div>
 
       <div className="space-y-3 w-full">
-        <Link href="/checkout" className="block w-full">
-          <Button className="w-full inline-flex items-center justify-center gap-2 h-11">
-            <RefreshCw className="h-4 w-4" />
-            Retry Checkout
-          </Button>
-        </Link>
-        <Link href="/cart" className="block w-full">
-          <Button variant="outline" className="w-full inline-flex items-center justify-center gap-2 h-11">
-            <ArrowLeft className="h-4 w-4" />
-            Return to Cart
-          </Button>
-        </Link>
+        <Button href="/checkout" className="w-full inline-flex items-center justify-center gap-2 h-11">
+          <RefreshCw className="h-4 w-4" />
+          Retry Checkout
+        </Button>
+        <Button href="/cart" variant="outline" className="w-full inline-flex items-center justify-center gap-2 h-11">
+          <ArrowLeft className="h-4 w-4" />
+          Return to Cart
+        </Button>
       </div>
     </div>
   );

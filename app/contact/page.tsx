@@ -53,7 +53,7 @@ export default function ContactPage() {
     <div className="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 lg:px-8 flex-1 flex flex-col gap-8">
       {/* Title Header */}
       <div className="border-b border-border/40 pb-6 text-center max-w-2xl mx-auto space-y-3">
-        <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground">
+        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground">
           Get in Touch
         </h1>
         <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
@@ -66,7 +66,7 @@ export default function ContactPage() {
         <div className="space-y-8">
           <div className="space-y-6">
             <h2 className="text-xl font-bold text-foreground">Contact Information</h2>
-            
+
             <div className="space-y-4">
               <div className="flex items-start gap-4">
                 <div className="p-2.5 bg-primary/10 text-primary rounded-xl">
@@ -133,14 +133,14 @@ export default function ContactPage() {
             <div className="h-56 bg-secondary/30 rounded-2xl border border-border/60 flex items-center justify-center relative overflow-hidden group shadow-inner">
               {/* Mock Map Background Visuals */}
               <div className="absolute inset-0 bg-[radial-gradient(#ddd_1px,transparent_1px)] dark:bg-[radial-gradient(#333_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
-              
+
               {/* Map pin bubble animation */}
               <div className="relative z-10 flex flex-col items-center gap-1 hover:scale-105 transition-transform duration-300">
                 <div className="p-2 bg-primary text-primary-foreground rounded-full shadow-lg border-2 border-white animate-bounce">
                   <MapPin className="h-6 w-6" />
                 </div>
                 <span className="px-2.5 py-1 bg-black/80 text-[10px] font-bold text-white rounded-lg backdrop-blur">
-                  ApexSaaS HQ
+                  Solution22 HQ
                 </span>
               </div>
             </div>

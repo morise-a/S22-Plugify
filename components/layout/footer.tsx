@@ -16,7 +16,7 @@ export function Footer() {
           {/* Brand Column */}
           <div className="space-y-4">
             <Link href="/" className="text-xl font-bold tracking-tight text-primary">
-              ApexSaaS
+              Solution22
             </Link>
             <p className="text-sm text-muted-foreground max-w-xs">
               Enterprise-grade SaaS eCommerce solutions to accelerate your subscription revenue.
@@ -51,7 +51,7 @@ export function Footer() {
 
           {/* Links Column 1 - Products */}
           <div>
-            <h3 className="text-sm font-semibold text-foreground tracking-wider uppercase">Products</h3>
+            <h3 className="text-sm font-semibold text-foreground tracking-wider capitalize">Products</h3>
             <ul className="mt-4 space-y-2">
               {['Features', 'Pricing', 'API Reference', 'Integrations'].map((link) => (
                 <li key={link}>
@@ -69,12 +69,12 @@ export function Footer() {
 
           {/* Links Column 2 - Company */}
           <div>
-            <h3 className="text-sm font-semibold text-foreground tracking-wider uppercase">Company</h3>
+            <h3 className="text-sm font-semibold text-foreground tracking-wider capitalize">Company</h3>
             <ul className="mt-4 space-y-2">
               {['About Us', 'Contact Support', 'Careers', 'Privacy Policy'].map((link) => (
                 <li key={link}>
                   <Link
-                    href={link === 'Contact Support' ? '/contact' : '#'}
+                    href={link === 'Contact Support' ? '/contact' : link === 'Privacy Policy' ? '/privacy' : '#'}
                     className="group text-sm text-muted-foreground hover:text-foreground transition-colors flex items-center gap-0.5"
                   >
                     {link}
@@ -87,7 +87,7 @@ export function Footer() {
 
           {/* Newsletter Column */}
           <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-foreground tracking-wider uppercase">Subscribe</h3>
+            <h3 className="text-sm font-semibold text-foreground tracking-wider capitalize">Subscribe</h3>
             <p className="text-sm text-muted-foreground">
               Subscribe to get notified about updates and product releases.
             </p>
@@ -107,11 +107,11 @@ export function Footer() {
 
         <div className="mt-12 border-t border-border/60 pt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
           <p className="text-xs text-muted-foreground">
-            &copy; {currentYear} ApexSaaS. All rights reserved. Built with Next.js & Supabase.
+            &copy; {currentYear} Solution22. All rights reserved. Built with Next.js & Supabase.
           </p>
           <div className="flex gap-6 text-xs text-muted-foreground">
-            <a href="#" className="hover:text-foreground transition-colors">Terms of Service</a>
-            <a href="#" className="hover:text-foreground transition-colors">Privacy Policy</a>
+            <Link href="/terms" className="hover:text-foreground transition-colors">Terms of Service</Link>
+            <Link href="/privacy" className="hover:text-foreground transition-colors">Privacy Policy</Link>
             <a href="#" className="hover:text-foreground transition-colors">Security</a>
           </div>
         </div>

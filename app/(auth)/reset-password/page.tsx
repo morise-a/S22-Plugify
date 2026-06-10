@@ -52,7 +52,7 @@ export default function ResetPasswordPage() {
       <div className="w-full max-w-md space-y-6">
         <div className="text-center">
           <Link href="/" className="inline-block text-2xl font-bold tracking-tight text-primary">
-            ApexSaaS
+            Solution22
           </Link>
           <h2 className="mt-4 text-3xl font-semibold tracking-tight text-foreground">
             Reset Password

@@ -60,7 +60,7 @@ export function Header({ user }: HeaderProps) {
         {/* Logo */}
         <div className="flex items-center gap-8">
           <Link href="/" className="text-xl font-bold tracking-tight text-primary">
-            ApexSaaS
+            Solution22
           </Link>
           
           {/* Desktop Navigation Links */}
@@ -101,24 +101,18 @@ export function Header({ user }: HeaderProps) {
           {/* User Profile / Dashboard Controls */}
           {user ? (
             <div className="hidden md:flex items-center gap-4">
-              <Link href={user.role === 'admin' ? '/admin/dashboard' : '/customer/dashboard'}>
-                <Button variant="outline" size="sm" className="inline-flex items-center gap-1.5">
-                  <User className="h-4 w-4" />
-                  Dashboard
-                </Button>
-              </Link>
+              <Button href={user.role === 'admin' ? '/admin/dashboard' : '/customer/dashboard'} variant="outline" size="sm" className="inline-flex items-center gap-1.5">
+                <User className="h-4 w-4" />
+                Dashboard
+              </Button>
               <Button variant="ghost" size="sm" onClick={handleSignOut} className="h-9 w-9 p-0 rounded-full" title="Log Out">
                 <LogOut className="h-4 w-4 text-muted-foreground hover:text-foreground" />
               </Button>
             </div>
           ) : (
             <div className="hidden md:flex items-center gap-3">
-              <Link href="/signin">
-                <Button variant="ghost" size="sm">Sign In</Button>
-              </Link>
-              <Link href="/signup">
-                <Button size="sm">Get Started</Button>
-              </Link>
+              <Button href="/signin" variant="ghost" size="sm">Sign In</Button>
+              <Button href="/signup" size="sm">Get Started</Button>
             </div>
           )}
 
@@ -183,12 +177,8 @@ export function Header({ user }: HeaderProps) {
               </>
             ) : (
               <div className="grid grid-cols-2 gap-3 pt-2">
-                <Link href="/signin" onClick={() => setMobileMenuOpen(false)}>
-                  <Button variant="outline" className="w-full">Sign In</Button>
-                </Link>
-                <Link href="/signup" onClick={() => setMobileMenuOpen(false)}>
-                  <Button className="w-full">Sign Up</Button>
-                </Link>
+                <Button href="/signin" onClick={() => setMobileMenuOpen(false)} variant="outline" className="w-full">Sign In</Button>
+                <Button href="/signup" onClick={() => setMobileMenuOpen(false)} className="w-full">Sign Up</Button>
               </div>
             )}
           </nav>

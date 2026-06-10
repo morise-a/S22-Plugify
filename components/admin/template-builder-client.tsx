@@ -2,12 +2,13 @@
 
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
-import { Mail, Edit3, Trash2, Plus, Copy, Check, Eye, EyeOff, Code, Bold, Italic, Heading, Link, Type } from 'lucide-react';
+import { Mail, Edit3, Trash2, Plus, Copy, Check, Eye, EyeOff, Code, Bold, Italic, Heading, Link, Type, Monitor, Smartphone, Tablet, Columns } from 'lucide-react';
 import { createTemplateAction, updateTemplateAction, deleteTemplateAction } from '../../app/actions/templates';
 import { useToast } from '../ui/toast';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../ui/card';
+import { ConfirmationModal } from '../ui/confirmation-modal';
 
 interface MailTemplate {
   id: string;
@@ -38,10 +39,14 @@ export function TemplateBuilderClient({ initialTemplates }: { initialTemplates: 
   const { showToast } = useToast();
   const [templates, setTemplates] = React.useState<MailTemplate[]>(initialTemplates);
   const [selectedTemplate, setSelectedTemplate] = React.useState<MailTemplate | null>(null);
-  
+
   const [copiedVar, setCopiedVar] = React.useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [showPreview, setShowPreview] = React.useState(true);
+  const [previewMode, setPreviewMode] = React.useState<'desktop' | 'tablet' | 'mobile'>('desktop');
+  const [layoutMode, setLayoutMode] = React.useState<'split' | 'editor' | 'preview'>('split');
+  const [templateToDeleteId, setTemplateToDeleteId] = React.useState<string | null>(null);
+  const [isDeletingTemplate, setIsDeletingTemplate] = React.useState(false);
 
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
 
@@ -105,12 +110,12 @@ export function TemplateBuilderClient({ initialTemplates }: { initialTemplates: 
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
     const currentText = watchedHtml || '';
-    
+
     const selectedText = currentText.substring(start, end);
     const newText = currentText.substring(0, start) + tagOpen + selectedText + tagClose + currentText.substring(end);
-    
+
     setValue('html_content', newText, { shouldValidate: true });
-    
+
     // Reset focus and selection
     setTimeout(() => {
       textarea.focus();
@@ -165,8 +170,8 @@ export function TemplateBuilderClient({ initialTemplates }: { initialTemplates: 
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this template?')) return;
+  const executeDeleteTemplate = async (id: string) => {
+    setIsDeletingTemplate(true);
     try {
       const res = await deleteTemplateAction(id);
       if (res.success) {
@@ -183,7 +188,13 @@ export function TemplateBuilderClient({ initialTemplates }: { initialTemplates: 
       }
     } catch (err) {
       showToast('Error', 'error', 'Failed to delete template.');
+    } finally {
+      setIsDeletingTemplate(false);
     }
+  };
+
+  const handleDelete = (id: string) => {
+    setTemplateToDeleteId(id);
   };
 
   return (
@@ -192,14 +203,14 @@ export function TemplateBuilderClient({ initialTemplates }: { initialTemplates: 
       <div className="lg:col-span-1 space-y-4">
         <div className="flex justify-between items-center pb-3 border-b border-slate-200/50">
           <div>
-            <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider">Mail Layouts</h3>
+            <h3 className="text-xs font-bold text-slate-800 capitalize tracking-wider">Mail Layouts</h3>
             <p className="text-[10px] text-slate-400 mt-0.5">Select a template to edit</p>
           </div>
-          <Button 
-            size="sm" 
-            variant="outline" 
-            className="h-8 w-8 p-0 inline-flex items-center justify-center rounded-xl border-slate-200 hover:bg-slate-50 cursor-pointer" 
-            onClick={handleAddNew} 
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 w-8 p-0 inline-flex items-center justify-center rounded-xl border-slate-200 hover:bg-slate-50 cursor-pointer"
+            onClick={handleAddNew}
             title="Create template"
           >
             <Plus className="h-4 w-4 text-slate-650" />
@@ -213,11 +224,10 @@ export function TemplateBuilderClient({ initialTemplates }: { initialTemplates: 
               <div
                 key={t.id}
                 onClick={() => handleSelectTemplate(t)}
-                className={`group p-4 rounded-2xl border text-left cursor-pointer transition-all duration-200 ${
-                  isActive
+                className={`group p-4 rounded-2xl border text-left cursor-pointer transition-all duration-200 ${isActive
                     ? 'border-indigo-500 bg-indigo-50/50 shadow-[0_4px_20px_rgba(79,70,229,0.02)] border-l-4 border-l-indigo-650'
                     : 'border-slate-200/60 bg-white hover:bg-slate-50/50 hover:border-slate-350'
-                }`}
+                  }`}
               >
                 <div className="flex justify-between items-start gap-2">
                   <div className="flex items-center gap-2 min-w-0">
@@ -246,16 +256,66 @@ export function TemplateBuilderClient({ initialTemplates }: { initialTemplates: 
       </div>
 
       {/* 2. Right Pane: Builder Editor + Mock Email Client Live Preview */}
-      <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-        
-        {/* Editor Card */}
+      <div className="lg:col-span-3 space-y-4">
+        {/* Layout Control Toolbar */}
+        <div className="flex justify-between items-center pb-2 border-b border-slate-200/40 gap-4">
+          <p className="text-[11px] text-slate-500 font-medium">Compose HTML transactional mailers, copy dynamic variables, and verify layout.</p>
+          <div className="flex bg-slate-100/80 p-0.5 rounded-lg border border-slate-200/50 shrink-0">
+            <button
+              type="button"
+              onClick={() => setLayoutMode('editor')}
+              className={`p-1.5 rounded-md transition-all cursor-pointer text-xs font-semibold flex items-center gap-1.5 ${
+                layoutMode === 'editor'
+                  ? 'bg-white shadow-sm text-indigo-655 font-bold'
+                  : 'text-slate-400 hover:text-slate-600'
+              }`}
+              title="Editor Only"
+            >
+              <Code className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline text-[10px]">Editor</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setLayoutMode('split')}
+              className={`p-1.5 rounded-md transition-all cursor-pointer text-xs font-semibold flex items-center gap-1.5 ${
+                layoutMode === 'split'
+                  ? 'bg-white shadow-sm text-indigo-655 font-bold'
+                  : 'text-slate-400 hover:text-slate-600'
+              }`}
+              title="Split View"
+            >
+              <Columns className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline text-[10px]">Split</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setLayoutMode('preview')}
+              className={`p-1.5 rounded-md transition-all cursor-pointer text-xs font-semibold flex items-center gap-1.5 ${
+                layoutMode === 'preview'
+                  ? 'bg-white shadow-sm text-indigo-655 font-bold'
+                  : 'text-slate-400 hover:text-slate-600'
+              }`}
+              title="Preview Only"
+            >
+              <Eye className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline text-[10px]">Preview</span>
+            </button>
+          </div>
+        </div>
+
+        <div className={`grid grid-cols-1 gap-8 items-start transition-all duration-300 ${
+          layoutMode === 'split' ? 'md:grid-cols-2' : 'grid-cols-1'
+        }`}>
+
+          {/* Editor Card */}
+          {layoutMode !== 'preview' && (
         <Card className="border-slate-200/50 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.015)] rounded-2xl">
           <CardHeader className="pb-4 border-b border-slate-100 flex flex-row items-center gap-2">
             <div className="h-9 w-9 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center border border-indigo-100/40">
               <Code className="h-4.5 w-4.5" />
             </div>
             <div>
-              <CardTitle className="text-xs font-bold text-slate-800 uppercase tracking-wider">Template Editor</CardTitle>
+              <CardTitle className="text-xs font-bold text-slate-800 capitalize tracking-wider">Template Editor</CardTitle>
               <CardDescription className="text-[10px] text-slate-400 mt-0.5">Customize template details and HTML markup</CardDescription>
             </div>
           </CardHeader>
@@ -278,8 +338,8 @@ export function TemplateBuilderClient({ initialTemplates }: { initialTemplates: 
 
               {/* Rich text helper toolbar */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 tracking-wide uppercase">HTML Content Markup</label>
-                
+                <label className="text-xs font-bold text-slate-700 tracking-wide capitalize">HTML Content Markup</label>
+
                 <div className="flex flex-wrap gap-1 p-1 bg-slate-50 border border-slate-200/60 rounded-t-xl border-b-0">
                   {[
                     { label: 'Bold', icon: <Bold className="h-3 w-3" />, act: () => insertHtmlTag('<strong>', '</strong>') },
@@ -315,7 +375,7 @@ export function TemplateBuilderClient({ initialTemplates }: { initialTemplates: 
 
               {/* Variable Helper Bar */}
               <div className="space-y-2 pt-2">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Insert Variables (Click to Copy)</span>
+                <span className="text-[10px] font-bold text-slate-400 capitalize tracking-widest block">Insert Variables (Click to Copy)</span>
                 <div className="flex flex-wrap gap-1.5">
                   {TEMPLATE_VARS.map((v) => (
                     <button
@@ -338,31 +398,78 @@ export function TemplateBuilderClient({ initialTemplates }: { initialTemplates: 
             </form>
           </CardContent>
         </Card>
+        )}
 
         {/* Live Preview Card styled as a Mock Mail Client */}
+        {layoutMode !== 'editor' && (
         <Card className="border-slate-200/50 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.015)] rounded-2xl flex flex-col h-full min-h-[550px]">
           <CardHeader className="pb-3 border-b border-slate-100 flex flex-row items-center justify-between">
             <div className="space-y-0.5">
-              <CardTitle className="text-sm font-bold text-slate-800 uppercase tracking-wider">Live Preview</CardTitle>
+              <CardTitle className="text-sm font-bold text-slate-800 capitalize tracking-wider">Live Preview</CardTitle>
               <CardDescription className="text-[10px] text-slate-400 mt-0.5">Simulated dynamic email content</CardDescription>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 rounded-xl text-xs cursor-pointer hover:bg-slate-50 border-slate-200 text-slate-650"
-              onClick={() => setShowPreview(!showPreview)}
-            >
-              {showPreview ? <EyeOff className="h-3.5 w-3.5 mr-1" /> : <Eye className="h-3.5 w-3.5 mr-1" />}
-              {showPreview ? 'Hide Client' : 'Show Client'}
-            </Button>
+            <div className="flex items-center gap-3">
+              {showPreview && (
+                <div className="flex bg-slate-100/80 p-0.5 rounded-lg border border-slate-200/50">
+                  <button
+                    type="button"
+                    onClick={() => setPreviewMode('desktop')}
+                    className={`p-1.5 rounded-md transition-all cursor-pointer ${
+                      previewMode === 'desktop'
+                        ? 'bg-white shadow-sm text-indigo-650'
+                        : 'text-slate-400 hover:text-slate-600'
+                    }`}
+                    title="Desktop Preview"
+                  >
+                    <Monitor className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewMode('tablet')}
+                    className={`p-1.5 rounded-md transition-all cursor-pointer ${
+                      previewMode === 'tablet'
+                        ? 'bg-white shadow-sm text-indigo-650'
+                        : 'text-slate-400 hover:text-slate-600'
+                    }`}
+                    title="Tablet Preview"
+                  >
+                    <Tablet className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewMode('mobile')}
+                    className={`p-1.5 rounded-md transition-all cursor-pointer ${
+                      previewMode === 'mobile'
+                        ? 'bg-white shadow-sm text-indigo-650'
+                        : 'text-slate-400 hover:text-slate-600'
+                    }`}
+                    title="Mobile Preview"
+                  >
+                    <Smartphone className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 rounded-xl text-xs cursor-pointer hover:bg-slate-50 border-slate-200 text-slate-650"
+                onClick={() => setShowPreview(!showPreview)}
+              >
+                {showPreview ? <EyeOff className="h-3.5 w-3.5 mr-1" /> : <Eye className="h-3.5 w-3.5 mr-1" />}
+                {showPreview ? 'Hide Client' : 'Show Client'}
+              </Button>
+            </div>
           </CardHeader>
           <CardContent className="p-6 flex-1 flex flex-col justify-start">
             {showPreview ? (
               <div className="space-y-4 flex-1 flex flex-col justify-start">
-                
+
                 {/* Mock Browser Shell Frame */}
-                <div className="border border-slate-200 rounded-xl overflow-hidden shadow-[0_4px_25px_rgba(0,0,0,0.02)] flex flex-col flex-1 bg-white">
-                  
+                <div className={`border border-slate-200 rounded-xl overflow-hidden shadow-[0_4px_25px_rgba(0,0,0,0.02)] flex flex-col flex-1 bg-white transition-all duration-300 ${
+                  previewMode === 'mobile' ? 'max-w-[360px] mx-auto w-full' :
+                  previewMode === 'tablet' ? 'max-w-[768px] mx-auto w-full' : 'w-full'
+                }`}>
+
                   {/* Browser Header Bar */}
                   <div className="bg-slate-50 border-b border-slate-200 px-4 py-2 flex items-center justify-between gap-4">
                     {/* Window Controls */}
@@ -375,7 +482,7 @@ export function TemplateBuilderClient({ initialTemplates }: { initialTemplates: 
                     {/* Address/SSL Bar */}
                     <div className="flex-1 max-w-sm bg-white border border-slate-200 rounded-lg px-3 py-1 flex items-center gap-1.5 text-[9px] text-slate-400 font-semibold shadow-inner truncate">
                       <span className="text-emerald-500 font-bold">🔒 https://</span>
-                      <span className="text-slate-600">mail.apexsaas.com/inbox/preview/{selectedTemplate?.template_name || 'untitled'}</span>
+                      <span className="text-slate-600">mail.solution22.com/inbox/preview/{selectedTemplate?.template_name || 'untitled'}</span>
                     </div>
 
                     <div className="w-12" /> {/* alignment spacer */}
@@ -385,15 +492,15 @@ export function TemplateBuilderClient({ initialTemplates }: { initialTemplates: 
                   <div className="bg-slate-50/50 border-b border-slate-100 p-4 text-[10px] text-slate-600 space-y-2 leading-relaxed">
                     <div className="flex gap-2">
                       <span className="font-bold text-slate-400 w-12 text-right">From:</span>
-                      <span className="text-slate-700 font-bold">ApexSaaS Mailer &lt;noreply@apexsaas.com&gt;</span>
+                      <span className="text-slate-700 font-bold">Solution22 Mailer &lt;noreply@solution22.com&gt;</span>
                     </div>
                     <div className="flex gap-2">
                       <span className="font-bold text-slate-400 w-12 text-right">To:</span>
-                      <span className="text-slate-700">{selectedTemplate?.template_name === 'contact_notification' ? 'admin@apexsaas.com' : 'sarah@domain.com'}</span>
+                      <span className="text-slate-700">{selectedTemplate?.template_name === 'contact_notification' ? 'admin@solution22.com' : 'sarah@domain.com'}</span>
                     </div>
                     <div className="flex gap-2 border-t border-slate-200/50 pt-2">
                       <span className="font-bold text-slate-400 w-12 text-right">Subject:</span>
-                      <span className="text-slate-800 font-extrabold">{compiled.subject || '(Subject empty)'}</span>
+                      <span className="text-slate-800 font-bold">{compiled.subject || '(Subject empty)'}</span>
                     </div>
                   </div>
 
@@ -422,7 +529,26 @@ export function TemplateBuilderClient({ initialTemplates }: { initialTemplates: 
             )}
           </CardContent>
         </Card>
+        )}
       </div>
+    </div>
+
+      <ConfirmationModal
+        isOpen={templateToDeleteId !== null}
+        onClose={() => setTemplateToDeleteId(null)}
+        onConfirm={async () => {
+          if (templateToDeleteId) {
+            await executeDeleteTemplate(templateToDeleteId);
+            setTemplateToDeleteId(null);
+          }
+        }}
+        title="Delete Mail Template?"
+        message="Are you sure you want to delete this template? Active configurations relying on this design will fallback to plain layouts."
+        confirmText="Delete"
+        cancelText="Cancel"
+        variant="destructive"
+        isLoading={isDeletingTemplate}
+      />
     </div>
   );
 }

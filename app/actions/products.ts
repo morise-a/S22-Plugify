@@ -46,6 +46,47 @@ async function uploadToStorage(file: File, isScreenshot: boolean = false) {
 }
 
 /**
+ * Uploads a plugin zip archive to the 'plugins' bucket.
+ */
+async function uploadPluginToStorage(file: File) {
+  const { createClient } = await import('@supabase/supabase-js');
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+  const supabase = (serviceRoleKey && !serviceRoleKey.includes('placeholder'))
+    ? createClient(supabaseUrl!, serviceRoleKey)
+    : await createActionClient();
+  
+  const fileExt = file.name.split('.').pop() || 'zip';
+  const fileName = `${Math.random().toString(36).substring(2, 9)}_${Date.now()}.${fileExt}`;
+
+  // Convert File to ArrayBuffer and then to Buffer
+  const arrayBuffer = await file.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+
+  const { error } = await supabase.storage
+    .from('plugins')
+    .upload(fileName, buffer, {
+      contentType: 'application/zip',
+      cacheControl: '3600',
+      upsert: true
+    });
+
+  if (error) {
+    console.error('Plugin storage upload error:', error);
+    throw new Error(`Failed to upload plugin archive: ${error.message}`);
+  }
+
+  // Get Public URL
+  const { data: { publicUrl } } = supabase.storage
+    .from('plugins')
+    .getPublicUrl(fileName);
+
+  return publicUrl;
+}
+
+
+/**
  * Create a new product with multiple screenshots and main images.
  */
 export async function createProductAction(formData: FormData) {
@@ -70,6 +111,7 @@ export async function createProductAction(formData: FormData) {
   const description = formData.get('description') as string;
   const price = parseFloat(formData.get('price') as string);
   const isActive = formData.get('is_active') === 'true';
+  const variantsStr = formData.get('variants') as string;
 
   // Validate fields via Zod
   const validation = productSchema.safeParse({ name, description, price });
@@ -78,6 +120,18 @@ export async function createProductAction(formData: FormData) {
   }
 
   // Insert product record
+  const pluginZip = formData.get('pluginZip') as File | null;
+  let pluginFileUrl = null;
+
+  if (pluginZip && pluginZip.size > 0) {
+    try {
+      pluginFileUrl = await uploadPluginToStorage(pluginZip);
+    } catch (uploadError) {
+      const errMsg = uploadError instanceof Error ? uploadError.message : 'Upload failed.';
+      return { success: false, error: `Failed to upload plugin archive: ${errMsg}` };
+    }
+  }
+
   const { data: product, error: insertError } = await supabase
     .from('products')
     .insert({
@@ -85,12 +139,39 @@ export async function createProductAction(formData: FormData) {
       description,
       price,
       is_active: isActive,
+      plugin_file_url: pluginFileUrl,
     })
     .select()
     .single();
 
   if (insertError || !product) {
     return { success: false, error: insertError?.message || 'Database insert failed.' };
+  }
+
+  // Insert variants if provided
+  if (variantsStr) {
+    try {
+      const variants = JSON.parse(variantsStr);
+      if (Array.isArray(variants) && variants.length > 0) {
+        const variantRows = variants.map((v: { name: string; price: number; domain_count?: number; layout_count?: number }) => ({
+          product_id: product.id,
+          name: v.name,
+          price: v.price,
+          domain_count: Number(v.domain_count) || 1,
+          layout_count: Number(v.layout_count) || 1,
+        }));
+        const { error: variantError } = await supabase
+          .from('product_variants')
+          .insert(variantRows);
+        if (variantError) {
+          console.error('Failed to insert variants:', variantError);
+          return { success: false, error: `Product created, but variants failed to save: ${variantError.message}` };
+        }
+      }
+    } catch (e) {
+      console.error('Failed to parse variants JSON:', e);
+      return { success: false, error: 'Failed to parse variants data.' };
+    }
   }
 
   // Retrieve files from FormData
@@ -154,25 +235,82 @@ export async function updateProductAction(productId: string, formData: FormData)
   const description = formData.get('description') as string;
   const price = parseFloat(formData.get('price') as string);
   const isActive = formData.get('is_active') === 'true';
+  const variantsStr = formData.get('variants') as string;
 
   const validation = productSchema.safeParse({ name, description, price });
   if (!validation.success) {
     return { success: false, error: validation.error.issues[0].message };
   }
 
+  const pluginZip = formData.get('pluginZip') as File | null;
+  const keepExistingPlugin = formData.get('keepExistingPlugin') === 'true';
+
+  let pluginFileUrl = undefined;
+  if (!keepExistingPlugin) {
+    pluginFileUrl = null;
+  }
+  if (pluginZip && pluginZip.size > 0) {
+    try {
+      pluginFileUrl = await uploadPluginToStorage(pluginZip);
+    } catch (uploadError) {
+      const errMsg = uploadError instanceof Error ? uploadError.message : 'Upload failed.';
+      return { success: false, error: `Failed to upload plugin archive: ${errMsg}` };
+    }
+  }
+
+  const updatePayload: any = {
+    name,
+    description,
+    price,
+    is_active: isActive,
+    updated_at: new Date().toISOString()
+  };
+  if (pluginFileUrl !== undefined) {
+    updatePayload.plugin_file_url = pluginFileUrl;
+  }
+
   const { error: updateError } = await supabase
     .from('products')
-    .update({
-      name,
-      description,
-      price,
-      is_active: isActive,
-      updated_at: new Date().toISOString()
-    })
+    .update(updatePayload)
     .eq('id', productId);
 
   if (updateError) {
     return { success: false, error: updateError.message };
+  }
+
+  // Update variants
+  const { error: deleteVariantsError } = await supabase
+    .from('product_variants')
+    .delete()
+    .eq('product_id', productId);
+
+  if (deleteVariantsError) {
+    console.error('Failed to delete old variants:', deleteVariantsError);
+  }
+
+  if (variantsStr) {
+    try {
+      const variants = JSON.parse(variantsStr);
+      if (Array.isArray(variants) && variants.length > 0) {
+        const variantRows = variants.map((v: { name: string; price: number; domain_count?: number; layout_count?: number }) => ({
+          product_id: productId,
+          name: v.name,
+          price: v.price,
+          domain_count: Number(v.domain_count) || 1,
+          layout_count: Number(v.layout_count) || 1,
+        }));
+        const { error: variantError } = await supabase
+          .from('product_variants')
+          .insert(variantRows);
+        if (variantError) {
+          console.error('Failed to insert variants:', variantError);
+          return { success: false, error: `Product updated, but variants failed to save: ${variantError.message}` };
+        }
+      }
+    } catch (e) {
+      console.error('Failed to parse variants JSON:', e);
+      return { success: false, error: 'Failed to parse variants data.' };
+    }
   }
 
   // Handle adding new files
@@ -285,7 +423,8 @@ export async function getProductsAction(options?: { includeInactive?: boolean })
     .from('products')
     .select(`
       *,
-      product_images (*)
+      product_images (*),
+      product_variants (*)
     `)
     .order('created_at', { ascending: false });
 
@@ -313,7 +452,8 @@ export async function getProductAction(productId: string) {
     .from('products')
     .select(`
       *,
-      product_images (*)
+      product_images (*),
+      product_variants (*)
     `)
     .eq('id', productId)
     .single();

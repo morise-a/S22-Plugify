@@ -35,7 +35,22 @@ export default async function CustomerDashboardPage() {
     .from('orders')
     .select(`
       *,
-      order_items (*)
+      order_items (
+        *,
+        products (
+          plugin_file_url
+        )
+      )
+    `)
+    .eq('user_id', authUser.id)
+    .order('created_at', { ascending: false });
+
+  // 3b. Fetch customer's purchased domains configuration slots
+  const { data: purchasedDomains } = await supabase
+    .from('purchased_domains')
+    .select(`
+      *,
+      products (name)
     `)
     .eq('user_id', authUser.id)
     .order('created_at', { ascending: false });
@@ -50,7 +65,7 @@ export default async function CustomerDashboardPage() {
   return (
     <div className="space-y-6 flex flex-col justify-start">
       <div>
-        <h1 className="text-3xl font-extrabold tracking-tight text-foreground">
+        <h1 className="text-3xl font-bold tracking-tight text-foreground">
           Customer Portal
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
@@ -63,6 +78,7 @@ export default async function CustomerDashboardPage() {
         subscriptions={subscriptions || []}
         orders={orders || []}
         notifications={notifications || []}
+        purchasedDomains={purchasedDomains || []}
       />
     </div>
   );

@@ -72,14 +72,13 @@ export function Pricing() {
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}
               transition={{ duration: 0.35, delay: idx * 0.05 }}
-              className={`p-8 rounded-2xl border flex flex-col justify-between relative bg-card/60 shadow transition-all duration-300 hover:shadow-lg ${
-                plan.popular
+              className={`p-8 rounded-2xl border flex flex-col justify-between relative bg-card/60 shadow transition-all duration-300 hover:shadow-lg ${plan.popular
                   ? 'border-primary ring-2 ring-primary/20 scale-102 z-10'
                   : 'border-border/60 hover:border-border'
-              }`}
+                }`}
             >
               {plan.popular && (
-                <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase bg-primary text-primary-foreground">
+                <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[10px] font-bold tracking-wider capitalize bg-primary text-primary-foreground">
                   Most Popular
                 </span>
               )}
@@ -91,7 +90,7 @@ export function Pricing() {
                 </div>
 
                 <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-extrabold text-foreground">{plan.price}</span>
+                  <span className="text-4xl font-bold text-foreground">{plan.price}</span>
                   <span className="text-sm text-muted-foreground">/ month</span>
                 </div>
 
@@ -108,14 +107,13 @@ export function Pricing() {
               </div>
 
               <div className="pt-8">
-                <Link href={plan.name === 'Enterprise' ? '/contact' : '/products'}>
-                  <Button
-                    variant={plan.popular ? 'primary' : 'outline'}
-                    className="w-full"
-                  >
-                    {plan.cta}
-                  </Button>
-                </Link>
+                <Button
+                  href={plan.name === 'Enterprise' ? '/contact' : '/products'}
+                  variant={plan.popular ? 'primary' : 'outline'}
+                  className="w-full"
+                >
+                  {plan.cta}
+                </Button>
               </div>
             </motion.div>
           ))}

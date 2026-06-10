@@ -27,7 +27,7 @@ export default async function LandingPage() {
 
       {/* 3. Product Highlights */}
       {highlightedProducts.length > 0 && (
-        <section className="py-20 lg:py-28 border-b border-border/40 bg-background">
+        <section className="py-12 border-b border-border/40 bg-background">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4">
               <div className="space-y-2">
@@ -52,14 +52,14 @@ export default async function LandingPage() {
       )}
 
       {/* 4. Benefits Section */}
-      <section className="py-20 lg:py-28 border-b border-border/40 bg-secondary/5">
+      <section className="py-12 border-b border-border/40 bg-secondary/5">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           <div className="space-y-6">
             <h2 className="text-3xl font-bold tracking-tight text-foreground">
               Designed for Speed and Conversions
             </h2>
             <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
-              We did not just write code; we built an optimized checkout funnel. ApexSaaS solves layout shifting, ensures robust Stripe integrations, and processes mailers automatically to maximize conversions.
+              We did not just write code; we built an optimized checkout funnel. Solution22 solves layout shifting, ensures robust Stripe integrations, and processes mailers automatically to maximize conversions.
             </p>
 
             <ul className="space-y-4.5">
@@ -120,7 +120,7 @@ export default async function LandingPage() {
       </section>
 
       {/* 5. Testimonials */}
-      <section className="py-20 lg:py-28 border-b border-border/40 bg-background">
+      <section className="py-12 border-b border-border/40 bg-background">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto space-y-4">
             <h2 className="text-3xl font-bold tracking-tight text-foreground">
@@ -165,28 +165,26 @@ export default async function LandingPage() {
       </section>
 
       {/* 6. Pricing Section */}
-      <Pricing />
+      {/* <Pricing /> */}
 
       {/* 7. FAQ Accordions */}
       <FAQ />
 
       {/* 8. Contact CTA */}
-      <section className="py-20 lg:py-28 bg-gradient-to-br from-primary to-indigo-700 text-primary-foreground relative overflow-hidden">
+      <section className="py-12 bg-gradient-to-br from-primary to-indigo-700 text-primary-foreground relative overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.15),transparent)] pointer-events-none" />
         <div className="mx-auto max-w-5xl px-4 sm:px-6 text-center space-y-6 relative z-10">
-          <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight">
+          <h2 className="text-3xl sm:text-5xl font-bold tracking-tight">
             Have Questions? Talk to Our Team
           </h2>
           <p className="text-sm sm:text-base text-primary-foreground/80 max-w-xl mx-auto leading-relaxed">
             Need custom integrations, custom enterprise billing setup, or email templates walkthrough? We are here to help.
           </p>
           <div className="pt-4">
-            <Link href="/contact">
-              <Button size="lg" variant="secondary" className="inline-flex items-center gap-2">
-                Get In Touch
-                <ArrowRight className="h-4 w-4 text-primary" />
-              </Button>
-            </Link>
+            <Button href="/contact" size="lg" variant="secondary" className="inline-flex items-center gap-2">
+              Get In Touch
+              <ArrowRight className="h-4 w-4 text-primary" />
+            </Button>
           </div>
         </div>
       </section>

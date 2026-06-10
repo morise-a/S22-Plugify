@@ -28,7 +28,7 @@ export async function getAppSettingsAction() {
 
   if (error) {
     console.error('Failed to get app settings:', error);
-    return { app_name: 'ApexSaaS Store', app_description: 'Production-ready SaaS eCommerce platform.' };
+    return { app_name: 'Solution22 Store', app_description: 'Production-ready SaaS eCommerce platform.' };
   }
   return data;
 }
@@ -38,6 +38,8 @@ export async function updateAppSettingsAction(data: {
   appDescription?: string;
   appLogoUrl?: string;
   appFaviconUrl?: string;
+  termsContent?: string;
+  privacyContent?: string;
 }) {
   const supabase = await createActionClient();
 
@@ -55,6 +57,8 @@ export async function updateAppSettingsAction(data: {
       app_description: data.appDescription || '',
       app_logo_url: data.appLogoUrl || null,
       app_favicon_url: data.appFaviconUrl || null,
+      terms_content: data.termsContent || '',
+      privacy_content: data.privacyContent || '',
       updated_at: new Date().toISOString()
     });
 
@@ -64,6 +68,57 @@ export async function updateAppSettingsAction(data: {
 
   revalidatePath('/', 'layout');
   return { success: true };
+}
+
+export async function uploadSettingsImageAction(formData: FormData) {
+  const supabase = await createActionClient();
+
+  // Guard: Admin only
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: 'Unauthorized.' };
+  const { data: dbUser } = await supabase.from('users').select('role').eq('id', user.id).single();
+  if (dbUser?.role !== 'admin') return { success: false, error: 'Admin role required.' };
+
+  const file = formData.get('file') as File;
+  if (!file) return { success: false, error: 'No file provided.' };
+
+  try {
+    const { createClient } = await import('@supabase/supabase-js');
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+    const storageSupabase = (serviceRoleKey && !serviceRoleKey.includes('placeholder'))
+      ? createClient(supabaseUrl!, serviceRoleKey)
+      : await createActionClient();
+
+    const fileExt = file.name.split('.').pop() || 'jpg';
+    const fileName = `settings/${Math.random().toString(36).substring(2, 9)}_${Date.now()}.${fileExt}`;
+
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    const { error } = await storageSupabase.storage
+      .from('products')
+      .upload(fileName, buffer, {
+        contentType: file.type,
+        cacheControl: '14400',
+        upsert: true
+      });
+
+    if (error) {
+      console.error('Settings Storage upload error:', error);
+      return { success: false, error: `Failed to upload file: ${error.message}` };
+    }
+
+    const { data: { publicUrl } } = storageSupabase.storage
+      .from('products')
+      .getPublicUrl(fileName);
+
+    return { success: true, url: publicUrl };
+  } catch (err: any) {
+    console.error('Settings Storage upload catch error:', err);
+    return { success: false, error: err.message || 'Unknown upload error.' };
+  }
 }
 
 // ====================================================================

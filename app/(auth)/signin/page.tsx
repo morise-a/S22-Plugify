@@ -88,7 +88,7 @@ function SignInForm() {
       <div className="w-full max-w-md space-y-6">
         <div className="text-center">
           <Link href="/" className="inline-block text-2xl font-bold tracking-tight text-primary">
-            ApexSaaS
+            Solution22
           </Link>
           <h2 className="mt-4 text-3xl font-semibold tracking-tight text-foreground">
             Welcome back
@@ -155,7 +155,7 @@ function SignInForm() {
               <div className="absolute inset-0 flex items-center">
                 <span className="w-full border-t border-border" />
               </div>
-              <div className="relative flex justify-center text-xs uppercase">
+              <div className="relative flex justify-center text-xs capitalize">
                 <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
               </div>
             </div>

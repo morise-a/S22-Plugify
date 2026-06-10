@@ -26,7 +26,7 @@ const FEATURE_LIST = [
     description: 'Keep customer checkout states synced and local-storage persisted automatically to avoid transaction drop-offs.',
   },
   {
-    icon: <Mail className="h-6 w-6 text-purple-500" />,
+    icon: <Mail className="h-6 w-6 text-primary" />,
     title: 'Mail Template Builder',
     description: 'Compose transactional emails with custom template variables and trigger SMTP notifications instantly.',
   },
@@ -39,7 +39,7 @@ const FEATURE_LIST = [
 
 export function Features() {
   return (
-    <section className="py-20 lg:py-28 bg-secondary/10 border-b border-border/40">
+    <section className="py-12 bg-secondary/10 border-b border-border/40">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-3xl mx-auto space-y-4">
           <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-foreground">

@@ -38,7 +38,30 @@ export async function proxy(request: NextRequest) {
   let role = 'customer';
 
   try {
-    const { data: authData } = await supabase.auth.getUser();
+    const { data: authData, error: authError } = await supabase.auth.getUser();
+
+    if (authError) {
+      if (
+        authError.status === 400 ||
+        authError.code?.includes('refresh_token') ||
+        authError.message?.toLowerCase().includes('refresh token')
+      ) {
+        // Clear all Supabase cookies to prevent subsequent requests from failing/logging errors
+        const sbCookies = request.cookies.getAll().filter((c) => c.name.startsWith('sb-'));
+        sbCookies.forEach((c) => {
+          request.cookies.delete(c.name);
+        });
+
+        // Recreate the response to forward the modified cookies and delete them in browser
+        response = NextResponse.next({
+          request,
+        });
+        sbCookies.forEach((c) => {
+          response.cookies.delete(c.name);
+        });
+      }
+    }
+
     user = authData?.user || null;
 
     if (user) {

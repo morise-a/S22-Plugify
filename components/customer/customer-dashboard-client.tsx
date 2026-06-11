@@ -41,9 +41,10 @@ interface CustomerDashboardProps {
   orders: any[];
   notifications: any[];
   purchasedDomains: any[];
+  licenseKeys: any[];
 }
 
-export function CustomerDashboardClient({ profile, subscriptions, orders, notifications, purchasedDomains }: CustomerDashboardProps) {
+export function CustomerDashboardClient({ profile, subscriptions, orders, notifications, purchasedDomains, licenseKeys }: CustomerDashboardProps) {
   const { showToast } = useToast();
   const [profileLoading, setProfileLoading] = React.useState(false);
   const [passwordLoading, setPasswordLoading] = React.useState(false);
@@ -204,10 +205,10 @@ export function CustomerDashboardClient({ profile, subscriptions, orders, notifi
         <div className="relative overflow-hidden p-6 rounded-3xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-[0_8px_30px_rgb(99,102,241,0.12)]">
           <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full translate-x-20 -translate-y-20 blur-2xl pointer-events-none" />
           <div className="absolute -bottom-10 -left-10 w-48 h-48 bg-purple-500/10 rounded-full blur-xl pointer-events-none" />
-          
+
           <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
             <div className="space-y-1.5 text-left">
-              <h2 className="text-2xl font-black tracking-tight flex items-center gap-2">
+              <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
                 Welcome back, {profile?.first_name || 'Customer'}!
                 <Sparkles className="h-5 w-5 text-yellow-300 animate-pulse" />
               </h2>
@@ -215,7 +216,7 @@ export function CustomerDashboardClient({ profile, subscriptions, orders, notifi
                 Manage your active software deployments, configure domain licenses, and check subscription expiry periods.
               </p>
             </div>
-            
+
             {/* Quick Metrics grid */}
             <div className="grid grid-cols-3 gap-2 w-full md:w-auto shrink-0 bg-white/10 p-2 rounded-2xl backdrop-blur-sm">
               <div className="text-center px-4 py-2">
@@ -239,122 +240,138 @@ export function CustomerDashboardClient({ profile, subscriptions, orders, notifi
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
           {/* Left Column: Active Products, Subscriptions & Domains */}
           <div className="lg:col-span-2 space-y-6">
-            
-            {/* 1. Active Subscriptions Section */}
-            <Card className="border-slate-200/50 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.015)] rounded-2xl overflow-hidden">
-              <CardHeader className="pb-4 border-b border-slate-100 flex flex-row items-center justify-between">
-                <div className="text-left">
-                  <CardTitle className="text-sm font-bold text-slate-800 uppercase tracking-wider">Active Subscriptions</CardTitle>
-                  <CardDescription className="text-[10px] text-slate-400 font-medium mt-0.5">Track period details, remaining time, and support extensions</CardDescription>
-                </div>
+
+            {/* Unified WordPress Plugins Card Grid */}
+            <Card className="border-slate-200/50 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.015)] rounded-2xl overflow-hidden text-left">
+              <CardHeader className="pb-4 border-b border-slate-100">
+                <CardTitle className="text-sm font-bold text-slate-800 capitalize tracking-wider">My Licensed WordPress Plugins</CardTitle>
+                <CardDescription className="text-[10px] text-slate-400 font-medium mt-0.5">Manage plugin downloads, check license expiry dates, and configure domain slots.</CardDescription>
               </CardHeader>
-              <CardContent className="p-6 space-y-4">
-                {subscriptions.length === 0 ? (
-                  <p className="text-xs text-slate-400 py-6 text-center font-medium">No active software subscriptions found.</p>
+              <CardContent className="p-6">
+                {purchasedItems.length === 0 ? (
+                  <p className="text-xs text-slate-400 py-6 text-center font-medium">No purchased WordPress plugins found.</p>
                 ) : (
-                  subscriptions.map((sub) => {
-                    const daysRemaining = Math.max(0, Math.ceil((new Date(sub.current_period_end).getTime() - Date.now()) / (1000 * 3600 * 24)));
-                    const isBelowMonth = daysRemaining <= 30;
-                    
-                    return (
-                      <div 
-                        key={sub.id} 
-                        className="p-4 bg-slate-50/50 border border-slate-100 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 transition-all hover:bg-slate-50"
-                      >
-                        <div className="text-left space-y-1">
-                          <h4 className="text-sm font-extrabold text-slate-800">{sub.products?.name || 'Software Subscription'}</h4>
-                          <div className="flex flex-wrap items-center gap-2 mt-1.5">
-                            <span className="text-[10px] text-slate-450 font-bold block sm:inline">
-                              Period: {new Date(sub.current_period_start).toLocaleDateString()} - {new Date(sub.current_period_end).toLocaleDateString()}
-                            </span>
-                            
-                            {/* Dynamic Expiry Alert Badges */}
-                            {isBelowMonth ? (
-                              daysRemaining === 0 ? (
-                                <span className="px-2.5 py-0.5 text-[9px] font-bold bg-red-100 border border-red-200 text-red-700 rounded-md animate-pulse">
-                                  ⚠️ Expired Today
-                                </span>
-                              ) : daysRemaining <= 7 ? (
-                                <span className="px-2.5 py-0.5 text-[9px] font-bold bg-red-50 border border-red-200 text-red-655 rounded-md animate-pulse">
-                                  ⚠️ Expires in {daysRemaining} day{daysRemaining > 1 ? 's' : ''}!
-                                </span>
-                              ) : (
-                                <span className="px-2.5 py-0.5 text-[9px] font-bold bg-amber-50 border border-amber-250 text-amber-700 rounded-md">
-                                  ⏳ {daysRemaining} days left
-                                </span>
-                              )
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {purchasedItems.map((item, idx) => {
+                      // Find associated subscription
+                      const sub = subscriptions.find((s) => s.product_id === item.product_id);
+
+                      // Find license key from license_keys table matching product_id and order_id (or product_id as fallback)
+                      const lic = licenseKeys.find((l) => l.product_id === item.product_id && l.order_id === item.order_id)
+                        || licenseKeys.find((l) => l.product_id === item.product_id);
+                      const licenseKey = lic?.license_key || 'N/A';
+
+                      const daysRemaining = sub
+                        ? Math.max(0, Math.ceil((new Date(sub.current_period_end).getTime() - Date.now()) / (1000 * 3600 * 24)))
+                        : 0;
+                      const isBelowMonth = sub ? daysRemaining <= 30 : false;
+
+                      const totalDays = sub
+                        ? Math.max(1, Math.ceil((new Date(sub.current_period_end).getTime() - new Date(sub.current_period_start).getTime()) / (1000 * 3600 * 24)))
+                        : 1;
+                      const progressPercent = sub
+                        ? Math.min(100, Math.max(0, ((totalDays - daysRemaining) / totalDays) * 100))
+                        : 100;
+                      const remainingPercent = 100 - progressPercent;
+
+                      return (
+                        <div
+                          key={idx}
+                          className="group border border-slate-150 dark:border-slate-850 bg-slate-50/30 hover:bg-white dark:hover:bg-slate-900 rounded-3xl p-5.5 flex flex-col justify-between gap-5 transition-all duration-305 hover:shadow-[0_12px_24px_rgba(99,102,241,0.04)] hover:-translate-y-0.5"
+                        >
+                          {/* Card Header: Product Name + Activation Status */}
+                          <div className="flex justify-between items-start gap-4">
+                            <div className="space-y-1">
+                              <h4 className="text-sm font-extrabold text-slate-800 dark:text-white leading-tight">{item.product_name.split(' (')[0]}</h4>
+                              <p className="text-[9px] text-slate-400 font-bold capitalize tracking-wider font-mono">License Key: <span className="text-indigo-650 dark:text-indigo-400 select-all font-mono font-extrabold">{licenseKey}</span></p>
+                            </div>
+                            {sub && sub.status === 'active' ? (
+                              <Badge variant="success" className="rounded-md font-bold px-2 py-0.5 text-[9px] capitalize tracking-wider">Active</Badge>
                             ) : (
-                              <span className="px-2.5 py-0.5 text-[9px] font-bold bg-indigo-50 border border-indigo-150 text-indigo-650 rounded-md">
-                                Expires in {Math.round(daysRemaining / 30)} months
-                              </span>
+                              <Badge variant="destructive" className="rounded-md font-bold px-2 py-0.5 text-[9px] capitalize tracking-wider">Expired</Badge>
                             )}
                           </div>
-                        </div>
 
-                        <div className="flex items-center gap-2.5 w-full sm:w-auto shrink-0">
-                          <Button
-                            href={`/products/${sub.product_id}`}
-                            className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 h-9 px-4 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-sm"
-                          >
-                            <Zap className="h-3.5 w-3.5" />
-                            Extend Subscription
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </CardContent>
-            </Card>
+                          {/* Expiry / Timeline Indicator */}
+                          {sub ? (
+                            <div className="space-y-2.5 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-850 p-3.5 rounded-2xl">
+                              <div className="flex justify-between items-center text-[10px] font-bold text-slate-550 font-mono">
+                                <span>Start: {new Date(sub.current_period_start).toLocaleDateString()}</span>
+                                <span>Expiry: {new Date(sub.current_period_end).toLocaleDateString()}</span>
+                              </div>
 
-            {/* 2. Purchased Digital Products Section */}
-            <Card className="border-slate-200/50 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.015)] rounded-2xl overflow-hidden">
-              <CardHeader className="pb-4 border-b border-slate-100 text-left">
-                <CardTitle className="text-sm font-bold text-slate-800 uppercase tracking-wider">Purchased Software & Archives</CardTitle>
-                <CardDescription className="text-[10px] text-slate-400 font-medium mt-0.5">Download the latest software packages and plugin bundles</CardDescription>
-              </CardHeader>
-              <CardContent className="p-6 space-y-4">
-                {purchasedItems.length === 0 ? (
-                  <p className="text-xs text-slate-400 py-6 text-center font-medium">No purchased software products found.</p>
-                ) : (
-                  purchasedItems.map((item, idx) => (
-                    <div 
-                      key={idx} 
-                      className="p-4 bg-slate-50/50 border border-slate-100 rounded-2xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 transition-all hover:bg-slate-50"
-                    >
-                      <div className="text-left space-y-1">
-                        <h4 className="text-sm font-extrabold text-slate-800">{item.product_name}</h4>
-                        <p className="text-[10px] text-slate-400 font-mono">Reference ID: {item.product_id}</p>
-                      </div>
-                      
-                      <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
-                        {item.products?.plugin_file_url ? (
-                          <Button
-                            href={item.products.plugin_file_url}
-                            target="_blank"
-                            download={`${item.product_name.replace(/\s+/g, '_')}_plugin.zip`}
-                            variant="outline"
-                            size="sm"
-                            className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 h-9 px-4 text-xs bg-indigo-50 border border-indigo-200/80 text-indigo-750 hover:bg-indigo-100 hover:text-indigo-900 font-bold shadow-sm"
-                          >
-                            <Download className="h-3.5 w-3.5" />
-                            Download (.zip)
-                          </Button>
-                        ) : (
-                          <span className="text-xs text-slate-400 italic px-2">No download file</span>
-                        )}
-                        
-                        <Button 
-                          href={`/products/${item.product_id}`} 
-                          variant="outline" 
-                          size="sm" 
-                          className="w-full sm:w-auto inline-flex items-center justify-center gap-1 h-9 px-4 text-xs font-bold"
-                        >
-                          View Details
-                        </Button>
-                      </div>
-                    </div>
-                  ))
+                              {/* Progress bar timeline */}
+                              <div className="w-full bg-slate-100 dark:bg-slate-900 rounded-full h-1.5 overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full transition-all duration-500 ${daysRemaining <= 7 ? 'bg-red-500 animate-pulse' : daysRemaining <= 30 ? 'bg-amber-500' : 'bg-emerald-500'
+                                    }`}
+                                  style={{ width: `${remainingPercent}%` }}
+                                />
+                              </div>
+
+                              {/* Days countdown indicator */}
+                              <div className="flex justify-between items-center pt-0.5">
+                                <span className="text-[9px] font-semibold text-slate-400">Subscription Timeline</span>
+                                {isBelowMonth ? (
+                                  daysRemaining === 0 ? (
+                                    <span className="text-[9px] font-extrabold text-red-500 animate-pulse flex items-center gap-1">
+                                      ⚠️ Expired Today
+                                    </span>
+                                  ) : daysRemaining <= 7 ? (
+                                    <span className="text-[9px] font-extrabold text-red-655 dark:text-red-400 animate-pulse flex items-center gap-1">
+                                      ⚠️ Only {daysRemaining} days left!
+                                    </span>
+                                  ) : (
+                                    <span className="text-[9px] font-extrabold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                                      ⏳ {daysRemaining} days left
+                                    </span>
+                                  )
+                                ) : (
+                                  <span className="text-[9px] font-bold text-indigo-650 dark:text-indigo-400">
+                                    Expires in {Math.ceil(daysRemaining / 30)} mos
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="p-3 bg-red-50/50 border border-red-100 text-red-650 rounded-2xl text-[10px] font-bold text-center">
+                              No active updates subscription found. Please renew to access downloads & updates.
+                            </div>
+                          )}
+
+                          {/* Action Buttons Row */}
+                          <div className="grid grid-cols-2 gap-3 pt-1">
+                            {/* Zip Download */}
+                            {item.products?.plugin_file_url ? (
+                              <Button
+                                href={item.products.plugin_file_url}
+                                target="_blank"
+                                download={`${item.product_name.replace(/\s+/g, '_')}_plugin.zip`}
+                                variant="outline"
+                                className="w-full inline-flex items-center justify-center gap-1.5 h-9 text-[11px] font-bold bg-white hover:bg-slate-50 border-slate-200 text-slate-800 dark:bg-slate-900 dark:text-slate-100 rounded-xl shadow-sm cursor-pointer"
+                              >
+                                <Download className="h-3.5 w-3.5" />
+                                Download Plugin
+                              </Button>
+                            ) : (
+                              <div className="w-full border border-dashed border-slate-200 text-slate-400 rounded-xl h-9 flex items-center justify-center text-[10px] font-medium italic">
+                                No zip configured
+                              </div>
+                            )}
+
+                            {/* Extend Subscription */}
+                            <Button
+                              href={`/products/${item.product_id}`}
+                              className="w-full inline-flex items-center justify-center gap-1.5 h-9 text-[11px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-md shadow-indigo-600/10 transition-all hover:scale-102 active:scale-98 cursor-pointer"
+                            >
+                              <Zap className="h-3.5 w-3.5" />
+                              Extend Plan
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -362,7 +379,7 @@ export function CustomerDashboardClient({ profile, subscriptions, orders, notifi
             {/* 3. Domain Configuration Slots Section */}
             <Card className="border-slate-200/50 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.015)] rounded-2xl overflow-hidden">
               <CardHeader className="pb-4 border-b border-slate-100 text-left">
-                <CardTitle className="text-sm font-bold text-slate-800 uppercase tracking-wider">License Domain Allocations</CardTitle>
+                <CardTitle className="text-sm font-bold text-slate-800 capitalize tracking-wider">License Domain Allocations</CardTitle>
                 <CardDescription className="text-[10px] text-slate-400 font-medium mt-0.5">Configure the active domain names authorized to run your layout licenses</CardDescription>
               </CardHeader>
               <CardContent className="p-6 divide-y divide-slate-100">
@@ -431,39 +448,6 @@ export function CustomerDashboardClient({ profile, subscriptions, orders, notifi
                   })
                 )}
               </CardContent>
-            </Card>
-
-            {/* 4. Usage Stats Widget */}
-            <Card className="border-slate-200/50 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.015)] rounded-2xl overflow-hidden p-6 space-y-5">
-              <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2 text-left">
-                <Activity className="h-4.5 w-4.5 text-indigo-500" />
-                API License Usage
-              </h3>
-              <div className="space-y-4">
-                <div className="space-y-1.5 text-left">
-                  <div className="flex justify-between text-xs font-semibold">
-                    <span className="text-slate-450">API Calls Verification (Current Cycle)</span>
-                    <span className="text-slate-800">2,492 / 5,000 calls</span>
-                  </div>
-                  <div className="w-full bg-slate-100 rounded-full h-2">
-                    <div className="bg-indigo-600 h-2 rounded-full" style={{ width: '49.8%' }} />
-                  </div>
-                </div>
-                <div className="space-y-1.5 text-left">
-                  <div className="flex justify-between text-xs font-semibold">
-                    <span className="text-slate-450">Registered Sites Allocation</span>
-                    <span className="text-slate-800">
-                      {purchasedDomains.filter(d => d.domain_name).length} / {purchasedDomains.length} domains
-                    </span>
-                  </div>
-                  <div className="w-full bg-slate-100 rounded-full h-2">
-                    <div 
-                      className="bg-emerald-500 h-2 rounded-full" 
-                      style={{ width: `${(purchasedDomains.filter(d => d.domain_name).length / Math.max(1, purchasedDomains.length)) * 100}%` }} 
-                    />
-                  </div>
-                </div>
-              </div>
             </Card>
           </div>
 

@@ -4,13 +4,22 @@ import crypto from 'crypto';
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json().catch(() => ({}));
-    const { domain, email, license_key, licenseKey } = body;
-    const incomingLicenseKey = license_key || licenseKey;
-    console.log('Body Checking:', body);
-    if (!domain || !email || !incomingLicenseKey) {
+    let body;
+    try {
+      body = await request.json();
+    } catch (err) {
       return NextResponse.json(
-        { status: false, error: 'Missing required fields: domain, email, and license_key are required.' },
+        { status: false, error: 'Invalid JSON payload. Please check your JSON syntax (e.g. missing commas).' },
+        { status: 400 }
+      );
+    }
+    const { domain, email, license_key, licenseKey, plugin_name, pluginName } = body;
+    const incomingLicenseKey = license_key || licenseKey;
+    const incomingPluginName = plugin_name || pluginName;
+    console.log('Body Checking:', body);
+    if (!domain || !email || !incomingLicenseKey || !incomingPluginName) {
+      return NextResponse.json(
+        { status: false, error: 'Missing required fields: domain, email, license_key, and plugin_name are required.' },
         { status: 400 }
       );
     }
@@ -18,6 +27,7 @@ export async function POST(request: Request) {
     const trimmedDomain = domain.trim().toLowerCase();
     const trimmedEmail = email.trim().toLowerCase();
     const trimmedLicenseKey = incomingLicenseKey.trim();
+    const trimmedPluginName = incomingPluginName.trim().toLowerCase();
 
     // Create a service role client to query all orders bypassing RLS
     const supabaseAdmin = createClient(
@@ -25,17 +35,40 @@ export async function POST(request: Request) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    // Query orders matching license key that are paid
-    const { data: order, error: queryError } = await supabaseAdmin
-      .from('orders')
-      .select('*')
-      .eq('status', 'paid')
+    // Query license key matching the trimmedLicenseKey and join its associated order
+    const { data: license, error: queryError } = await supabaseAdmin
+      .from('license_keys')
+      .select(`
+        *,
+        orders (
+          id,
+          status,
+          billing_email
+        )
+      `)
       .eq('license_key', trimmedLicenseKey)
       .single();
 
-    if (queryError || !order) {
+    if (queryError || !license) {
       return NextResponse.json(
         { status: false, error: 'Invalid license key.' },
+        { status: 401 }
+      );
+    }
+
+    // Verify license has not expired
+    const now = new Date();
+    if (license.expiry_date && new Date(license.expiry_date) < now) {
+      return NextResponse.json(
+        { status: false, error: 'License key has expired.' },
+        { status: 401 }
+      );
+    }
+
+    const order = license.orders as any;
+    if (!order || order.status !== 'paid') {
+      return NextResponse.json(
+        { status: false, error: 'License associated order is not paid or valid.' },
         { status: 401 }
       );
     }
@@ -44,6 +77,15 @@ export async function POST(request: Request) {
     if (order.billing_email?.trim().toLowerCase() !== trimmedEmail) {
       return NextResponse.json(
         { status: false, error: 'License email mismatch.' },
+        { status: 401 }
+      );
+    }
+
+    // Verify plugin/product name matches
+    const cleanDbProduct = (license.product_name || '').trim().toLowerCase();
+    if (!cleanDbProduct || !trimmedPluginName || !cleanDbProduct.includes(trimmedPluginName)) {
+      return NextResponse.json(
+        { status: false, error: 'Plugin name mismatch.' },
         { status: 401 }
       );
     }
@@ -122,24 +164,13 @@ export async function POST(request: Request) {
         hasMatchingDomain = true;
       }
     } else {
-      // Fallback: check order.domain directly (supports comma-separated multiple domains)
-      const allowedDomains = (order.domain || '')
-        .split(',')
-        .map((d: string) => d.trim())
-        .filter(Boolean);
-
-      for (const allowedD of allowedDomains) {
-        if (isDomainMatching(allowedD, trimmedDomain)) {
-          hasMatchingDomain = true;
-          break;
-        }
-      }
+      // Fallback: legacy check (domain column has been removed from orders table)
     }
 
     if (!hasMatchingDomain) {
       const registeredList = dbDomains && dbDomains.length > 0
         ? dbDomains.map((d: any) => d.domain_name || 'Not configured').join(', ')
-        : (order.domain || 'None');
+        : 'None';
       return NextResponse.json(
         { status: false, error: `License domain mismatch.` },
         { status: 401 }
@@ -166,9 +197,21 @@ export async function POST(request: Request) {
     let encrypted = cipher.update(credentialsPayload, 'utf8', 'base64');
     encrypted += cipher.final('base64');
 
+    const formatDate = (dateVal: any) => {
+      if (!dateVal) return '';
+      const d = new Date(dateVal);
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      const yyyy = d.getFullYear();
+      return `${mm}/${dd}/${yyyy}`;
+    };
+
     return NextResponse.json({
       status: true,
       message: "License Verified Successfully",
+      purchased_date: formatDate(license.purchased_date),
+      expiry_date: formatDate(license.expiry_date),
+      plan_name: license.plan_name,
       payload: encryptionSecret
     });
   } catch (error: unknown) {

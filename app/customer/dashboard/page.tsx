@@ -55,6 +55,12 @@ export default async function CustomerDashboardPage() {
     .eq('user_id', authUser.id)
     .order('created_at', { ascending: false });
 
+  // 3c. Fetch customer's license keys
+  const { data: licenseKeys } = await supabase
+    .from('license_keys')
+    .select('*')
+    .eq('user_id', authUser.id);
+
   // 4. Fetch unread notifications
   const { data: notifications } = await supabase
     .from('notifications')
@@ -79,6 +85,7 @@ export default async function CustomerDashboardPage() {
         orders={orders || []}
         notifications={notifications || []}
         purchasedDomains={purchasedDomains || []}
+        licenseKeys={licenseKeys || []}
       />
     </div>
   );

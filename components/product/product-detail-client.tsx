@@ -22,6 +22,7 @@ interface ProductVariant {
   price: number;
   domain_count?: number;
   layout_count?: number;
+  billing_cycle?: 'monthly' | 'yearly';
 }
 
 interface Product {
@@ -41,7 +42,10 @@ export function ProductDetailClient({ product, relatedProducts }: { product: Pro
 
   const [selectedImage, setSelectedImage] = React.useState<string>('');
   const [quantity, setQuantity] = React.useState<number>(1);
-  const [selectedVariant, setSelectedVariant] = React.useState<ProductVariant | null>(null);
+  const initialVariant = product.product_variants && product.product_variants.length > 0
+    ? (product.product_variants.find((v) => (v.billing_cycle || 'monthly') === 'monthly') || product.product_variants[0])
+    : null;
+  const [selectedVariant, setSelectedVariant] = React.useState<ProductVariant | null>(initialVariant);
   
   // Billing cycle states
   const [billingCycle, setBillingCycle] = React.useState<'monthly' | 'yearly'>('monthly');
@@ -57,21 +61,33 @@ export function ProductDetailClient({ product, relatedProducts }: { product: Pro
     setSelectedImage(mainImage);
   }, [mainImage]);
 
+  // Dynamically select matching variant when cycle changes
   React.useEffect(() => {
     if (product.product_variants && product.product_variants.length > 0) {
-      setSelectedVariant(product.product_variants[0]);
+      const matching = product.product_variants.find((v) => (v.billing_cycle || 'monthly') === billingCycle);
+      if (matching) {
+        setSelectedVariant(matching);
+      } else {
+        // Fallback to the first available variant if none match explicitly
+        setSelectedVariant(product.product_variants[0]);
+      }
     }
-  }, [product.product_variants]);
+  }, [billingCycle, product.product_variants]);
 
   const basePrice = selectedVariant ? Number(selectedVariant.price) : Number(product.price);
-  const displayPrice = billingCycle === 'yearly' ? basePrice * 10 : basePrice * durationMonths;
+  
+  // A variant is yearly flat rate if its cycle is yearly. Otherwise, calculations depend on billingCycle toggle.
+  const isYearlyVariant = selectedVariant && selectedVariant.billing_cycle === 'yearly';
+  const displayPrice = isYearlyVariant
+    ? basePrice
+    : (billingCycle === 'yearly' ? basePrice * 10 : basePrice * durationMonths);
 
   const getDates = () => {
     const today = new Date();
     const startStr = today.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     
     const end = new Date(today);
-    const monthsToAdd = billingCycle === 'yearly' ? 12 : durationMonths;
+    const monthsToAdd = (isYearlyVariant || billingCycle === 'yearly') ? 12 : durationMonths;
     end.setMonth(today.getMonth() + monthsToAdd);
     const endStr = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     
@@ -80,10 +96,15 @@ export function ProductDetailClient({ product, relatedProducts }: { product: Pro
 
   const handleAddToCart = () => {
     const { startStr, endStr } = getDates();
-    const months = billingCycle === 'yearly' ? 12 : durationMonths;
+    const months = (isYearlyVariant || billingCycle === 'yearly') ? 12 : durationMonths;
+    
+    const cycleLabel = isYearlyVariant 
+      ? 'Yearly' 
+      : (billingCycle === 'yearly' ? 'Yearly' : `${durationMonths} Month${durationMonths > 1 ? 's' : ''}`);
+      
     const itemVariantName = selectedVariant
-      ? `${selectedVariant.name} (${billingCycle === 'yearly' ? 'Yearly' : `${durationMonths} Month${durationMonths > 1 ? 's' : ''}`})`
-      : `Standard (${billingCycle === 'yearly' ? 'Yearly' : `${durationMonths} Month${durationMonths > 1 ? 's' : ''}`})`;
+      ? `${selectedVariant.name} (${cycleLabel})`
+      : `Standard (${cycleLabel})`;
 
     addToCart({
       id: product.id,
@@ -94,11 +115,12 @@ export function ProductDetailClient({ product, relatedProducts }: { product: Pro
       variantName: itemVariantName,
       domain_count: selectedVariant?.domain_count,
       layout_count: selectedVariant?.layout_count,
-      billingCycle,
+      billingCycle: isYearlyVariant ? 'yearly' : billingCycle,
       durationMonths: months,
       startDate: startStr,
       endDate: endStr,
     } as any, quantity);
+    
     showToast(
       'Added to Cart!',
       'success',
@@ -108,10 +130,15 @@ export function ProductDetailClient({ product, relatedProducts }: { product: Pro
 
   const handleBuyNow = () => {
     const { startStr, endStr } = getDates();
-    const months = billingCycle === 'yearly' ? 12 : durationMonths;
+    const months = (isYearlyVariant || billingCycle === 'yearly') ? 12 : durationMonths;
+    
+    const cycleLabel = isYearlyVariant 
+      ? 'Yearly' 
+      : (billingCycle === 'yearly' ? 'Yearly' : `${durationMonths} Month${durationMonths > 1 ? 's' : ''}`);
+      
     const itemVariantName = selectedVariant
-      ? `${selectedVariant.name} (${billingCycle === 'yearly' ? 'Yearly' : `${durationMonths} Month${durationMonths > 1 ? 's' : ''}`})`
-      : `Standard (${billingCycle === 'yearly' ? 'Yearly' : `${durationMonths} Month${durationMonths > 1 ? 's' : ''}`})`;
+      ? `${selectedVariant.name} (${cycleLabel})`
+      : `Standard (${cycleLabel})`;
 
     addToCart({
       id: product.id,
@@ -122,7 +149,7 @@ export function ProductDetailClient({ product, relatedProducts }: { product: Pro
       variantName: itemVariantName,
       domain_count: selectedVariant?.domain_count,
       layout_count: selectedVariant?.layout_count,
-      billingCycle,
+      billingCycle: isYearlyVariant ? 'yearly' : billingCycle,
       durationMonths: months,
       startDate: startStr,
       endDate: endStr,
@@ -237,23 +264,25 @@ export function ProductDetailClient({ product, relatedProducts }: { product: Pro
             <div className="space-y-3 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800/60">
               <h3 className="text-xs font-bold text-slate-500 capitalize tracking-wider">Select License Variant</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {product.product_variants.map((v) => {
-                  const isSelected = selectedVariant?.id === v.id;
-                  return (
-                    <button
-                      key={v.id}
-                      type="button"
-                      onClick={() => setSelectedVariant(v)}
-                      className={`flex flex-col text-left p-3.5 rounded-xl border text-xs cursor-pointer transition-all duration-150 ${isSelected
-                        ? 'border-indigo-650 bg-indigo-50/50 dark:bg-indigo-950/20 text-indigo-900 dark:text-indigo-200 ring-1 ring-indigo-650'
-                        : 'border-slate-200 dark:border-slate-800 bg-card hover:bg-slate-100/50 dark:hover:bg-slate-800/40 text-slate-700 dark:text-slate-300'
-                        }`}
-                    >
-                      <span className="font-bold mb-1">{v.name}</span>
-                      <span className="font-bold text-[13px]">${Number(v.price).toFixed(2)}</span>
-                    </button>
-                  );
-                })}
+                {product.product_variants
+                  .filter((v) => (v.billing_cycle || 'monthly') === billingCycle)
+                  .map((v) => {
+                    const isSelected = selectedVariant?.id === v.id;
+                    return (
+                      <button
+                        key={v.id}
+                        type="button"
+                        onClick={() => setSelectedVariant(v)}
+                        className={`flex flex-col text-left p-3.5 rounded-xl border text-xs cursor-pointer transition-all duration-150 ${isSelected
+                          ? 'border-indigo-650 bg-indigo-50/50 dark:bg-indigo-950/20 text-indigo-900 dark:text-indigo-200 ring-1 ring-indigo-650'
+                          : 'border-slate-200 dark:border-slate-800 bg-card hover:bg-slate-100/50 dark:hover:bg-slate-800/40 text-slate-700 dark:text-slate-300'
+                          }`}
+                      >
+                        <span className="font-bold mb-1">{v.name}</span>
+                        <span className="font-bold text-[13px]">${Number(v.price).toFixed(2)}</span>
+                      </button>
+                    );
+                  })}
               </div>
             </div>
           )}
@@ -269,13 +298,20 @@ export function ProductDetailClient({ product, relatedProducts }: { product: Pro
                   setBillingCycle('monthly');
                   setDurationMonths(1);
                 }}
-                className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl border text-xs font-bold transition-all duration-200 cursor-pointer focus:outline-none ${
+                className={`flex-1 flex items-center justify-between py-3.5 px-4.5 rounded-xl border text-xs font-bold transition-all duration-200 cursor-pointer focus:outline-none ${
                   billingCycle === 'monthly'
-                    ? 'border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/20 text-indigo-900 dark:text-indigo-200 ring-1 ring-indigo-600'
+                    ? 'border-indigo-650 bg-indigo-50/60 dark:bg-indigo-950/20 text-indigo-950 dark:text-indigo-200 ring-1 ring-indigo-650'
                     : 'border-slate-200 dark:border-slate-800 bg-card hover:bg-slate-100/50 dark:hover:bg-slate-800/40 text-slate-700 dark:text-slate-300'
                 }`}
               >
-                Monthly
+                <span className="flex items-center gap-2.5">
+                  <span className={`h-4.5 w-4.5 rounded-full border flex items-center justify-center transition-all ${
+                    billingCycle === 'monthly' ? 'border-indigo-650 bg-indigo-650' : 'border-slate-300 dark:border-slate-700'
+                  }`}>
+                    {billingCycle === 'monthly' && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
+                  </span>
+                  Monthly Cycle
+                </span>
               </button>
               <button
                 type="button"
@@ -283,19 +319,29 @@ export function ProductDetailClient({ product, relatedProducts }: { product: Pro
                   setBillingCycle('yearly');
                   setDurationMonths(12);
                 }}
-                className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl border text-xs font-bold transition-all duration-200 cursor-pointer focus:outline-none ${
+                className={`flex-1 flex items-center justify-between py-3.5 px-4.5 rounded-xl border text-xs font-bold transition-all duration-200 cursor-pointer focus:outline-none ${
                   billingCycle === 'yearly'
-                    ? 'border-indigo-600 bg-indigo-50/50 dark:bg-indigo-950/20 text-indigo-900 dark:text-indigo-200 ring-1 ring-indigo-600'
+                    ? 'border-indigo-650 bg-indigo-50/60 dark:bg-indigo-950/20 text-indigo-950 dark:text-indigo-200 ring-1 ring-indigo-650'
                     : 'border-slate-200 dark:border-slate-800 bg-card hover:bg-slate-100/50 dark:hover:bg-slate-800/40 text-slate-700 dark:text-slate-300'
                 }`}
               >
-                Yearly (2 Months Free!)
+                <span className="flex items-center gap-2.5">
+                  <span className={`h-4.5 w-4.5 rounded-full border flex items-center justify-center transition-all ${
+                    billingCycle === 'yearly' ? 'border-indigo-650 bg-indigo-650' : 'border-slate-300 dark:border-slate-700'
+                  }`}>
+                    {billingCycle === 'yearly' && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
+                  </span>
+                  Yearly Cycle (Discounted)
+                </span>
+                <span className="text-[9px] font-extrabold bg-emerald-500 text-white py-0.5 px-2 rounded-full uppercase tracking-wider shrink-0">
+                  Save 20%
+                </span>
               </button>
             </div>
 
-            {/* If monthly, show number of months input */}
-            {billingCycle === 'monthly' && (
-              <div className="flex items-center justify-between pt-2 border-t border-slate-200/50 dark:border-slate-800/50">
+            {/* If monthly (and not explicitly a yearly variant), show duration input */}
+            {billingCycle === 'monthly' && !isYearlyVariant && (
+              <div className="flex items-center justify-between pt-3 border-t border-slate-200/50 dark:border-slate-800/50">
                 <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Billing Duration:</span>
                 <div className="flex items-center border border-slate-200 dark:border-slate-800 bg-card rounded-xl overflow-hidden h-9 shadow-inner">
                   <button
@@ -305,12 +351,23 @@ export function ProductDetailClient({ product, relatedProducts }: { product: Pro
                   >
                     -
                   </button>
-                  <span className="px-4 text-xs font-bold text-slate-800 dark:text-slate-200 font-mono w-14 text-center">
-                    {durationMonths} Mo.
-                  </span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={36}
+                    value={durationMonths}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value);
+                      if (!isNaN(val) && val >= 1) {
+                        setDurationMonths(Math.min(36, val));
+                      }
+                    }}
+                    className="w-12 text-center text-xs font-bold text-slate-800 dark:text-slate-200 font-mono focus:outline-none border-0 bg-transparent"
+                  />
+                  <span className="text-[10px] text-slate-400 font-semibold pr-2.5 select-none font-mono">Mo.</span>
                   <button
                     type="button"
-                    onClick={() => setDurationMonths(Math.min(24, durationMonths + 1))}
+                    onClick={() => setDurationMonths(Math.min(36, durationMonths + 1))}
                     className="px-3 h-full hover:bg-secondary/40 text-slate-500 hover:text-slate-800 cursor-pointer font-bold text-sm"
                   >
                     +
@@ -329,12 +386,12 @@ export function ProductDetailClient({ product, relatedProducts }: { product: Pro
                 </div>
                 <div className="h-4 w-px bg-indigo-150 dark:bg-indigo-900" />
                 <div className="flex flex-col text-right">
-                  <span className="text-[9px] text-slate-450 font-normal">Renewal / Expiry Date</span>
+                  <span className="text-[9px] text-slate-455 font-normal">Renewal / Expiry Date</span>
                   <span className="font-semibold text-slate-800 dark:text-slate-200">{getDates().endStr}</span>
                 </div>
               </div>
               <p className="text-[10px] text-indigo-600/80 dark:text-indigo-400/80 font-medium pt-1">
-                {billingCycle === 'yearly'
+                {isYearlyVariant || billingCycle === 'yearly'
                   ? '🛡️ Full 1-year updates & license authorization (includes 2 months free discount).'
                   : `🛡️ Full ${durationMonths} month${durationMonths > 1 ? 's' : ''} updates & support renewals.`}
               </p>

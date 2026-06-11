@@ -7,33 +7,33 @@ import { Shield, Zap, TrendingUp, RefreshCw, Mail, Cpu } from 'lucide-react';
 const FEATURE_LIST = [
   {
     icon: <Shield className="h-6 w-6 text-indigo-500" />,
-    title: 'Enterprise Security',
-    description: 'Supabase Row Level Security (RLS) policies configured out of the box to guarantee complete database partitioning.',
+    title: 'Direct ZIP Downloads',
+    description: 'Get immediate access to your WordPress plugin ZIP archive files immediately after payment completes, with polling auto-downloads.',
   },
   {
     icon: <Zap className="h-6 w-6 text-amber-500" />,
-    title: 'Instant stripe Payments',
-    description: 'Collect one-off charges or set up complex subscription periods. Verified securely via Stripe webhook confirmations.',
+    title: 'WordPress License Keys',
+    description: 'Every purchase includes a unique license key. Validate and authorize your slots through our secure verification API.',
   },
   {
     icon: <TrendingUp className="h-6 w-6 text-emerald-500" />,
-    title: 'Advanced Analytics',
-    description: 'Monitor active subscriber status, total MRR, and conversion metrics in real-time inside your dashboard.',
+    title: 'Auto-Update API Integration',
+    description: 'Manage versioning and check updates directly. Our verification endpoint allows plugins to query updates dynamically.',
   },
   {
     icon: <RefreshCw className="h-6 w-6 text-blue-500" />,
-    title: 'Zustand Cart Persist',
-    description: 'Keep customer checkout states synced and local-storage persisted automatically to avoid transaction drop-offs.',
+    title: 'Optimized & Lightweight',
+    description: 'Clean coding practices and zero bloat. Engineered to keep server overhead minimal and PageSpeed score at its peak.',
   },
   {
     icon: <Mail className="h-6 w-6 text-primary" />,
-    title: 'Mail Template Builder',
-    description: 'Compose transactional emails with custom template variables and trigger SMTP notifications instantly.',
+    title: 'Multi-Site Licensing Options',
+    description: 'Flexible options for developers and agencies. Choose standard single-site keys or multi-domain developer packs.',
   },
   {
     icon: <Cpu className="h-6 w-6 text-rose-500" />,
-    title: 'Next.js App Router',
-    description: 'Optimized rendering speeds and instant transitions using Next.js 16 server actions and caching strategies.',
+    title: 'Developer Hooks Extensibility',
+    description: 'Standard filter and action hooks built right in. Extend functions easily without altering core plugin structures.',
   },
 ];
 

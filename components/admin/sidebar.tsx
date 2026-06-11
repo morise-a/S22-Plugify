@@ -4,6 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { LayoutDashboard, ShoppingBag, Mail, Settings, LogOut, ArrowLeft, Menu, X, User } from 'lucide-react';
+import { NotificationBell } from '../ui/notification-bell';
 import { Button } from '../ui/button';
 import { signOutAction } from '../../app/actions/auth';
 import { useToast } from '../ui/toast';
@@ -55,12 +56,15 @@ export function AdminSidebar({ user }: SidebarProps) {
           <span className="h-7 w-7 bg-indigo-600 text-white rounded-lg flex items-center justify-center font-bold text-sm shadow-md shadow-indigo-600/20">A</span>
           Solution22 <span className="text-[9px] bg-indigo-50 text-indigo-600 border border-indigo-100 px-2 py-0.5 rounded-full font-bold capitalize tracking-wider">Admin</span>
         </Link>
-        <button
-          onClick={() => setMobileOpen(!mobileOpen)}
-          className="p-2 border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all duration-200 cursor-pointer"
-        >
-          {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </button>
+        <div className="flex items-center gap-2">
+          <NotificationBell variant="admin" />
+          <button
+            onClick={() => setMobileOpen(!mobileOpen)}
+            className="p-2 border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 hover:text-slate-900 transition-all duration-200 cursor-pointer"
+          >
+            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+        </div>
       </header>
 
       {/* Mobile Slide-out Menu */}
@@ -131,13 +135,14 @@ export function AdminSidebar({ user }: SidebarProps) {
       )}
 
       {/* Desktop Sidebar Panel */}
-      <aside className="hidden md:flex flex-col w-64 border-r border-slate-200/40 bg-white p-6 justify-between shrink-0 sticky top-0 h-screen shadow-[1px_0_0_0_rgba(0,0,0,0.01)]">
+      <aside className="hidden md:flex flex-col w-64 border-r border-slate-200/40 bg-white p-6 justify-between shrink-0 sticky top-0 h-screen z-30 shadow-[1px_0_0_0_rgba(0,0,0,0.01)]">
         <div className="space-y-10">
-          <div>
+          <div className="flex items-center justify-between">
             <Link href="/admin/dashboard" className="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2 hover:scale-[0.98] transition-transform duration-200">
               <span className="h-8 w-8 bg-indigo-600 text-white rounded-xl flex items-center justify-center font-bold text-base shadow-md shadow-indigo-600/25">S</span>
               <span>Solution22</span>
             </Link>
+            <NotificationBell variant="admin" align="left" />
           </div>
 
           <nav className="space-y-1">

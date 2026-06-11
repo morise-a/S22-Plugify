@@ -31,13 +31,13 @@ export default async function LandingPage() {
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4">
               <div className="space-y-2">
-                <h2 className="text-3xl font-bold tracking-tight text-foreground">Featured Products</h2>
+                <h2 className="text-3xl font-bold tracking-tight text-foreground">Featured WordPress Plugins</h2>
                 <p className="text-sm text-muted-foreground">
-                  Explore our premium ready-to-use software solutions.
+                  Explore our high-performance, developer-friendly extensions to scale your site.
                 </p>
               </div>
               <Link href="/products" className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline">
-                View entire catalog
+                View entire plugin directory
                 <ChevronRight className="h-4 w-4" />
               </Link>
             </div>
@@ -54,20 +54,20 @@ export default async function LandingPage() {
       {/* 4. Benefits Section */}
       <section className="py-12 border-b border-border/40 bg-secondary/5">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-          <div className="space-y-6">
+          <div className="space-y-6 text-left">
             <h2 className="text-3xl font-bold tracking-tight text-foreground">
-              Designed for Speed and Conversions
+              Engineered for Speed & Secure Licensing
             </h2>
             <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
-              We did not just write code; we built an optimized checkout funnel. Solution22 solves layout shifting, ensures robust Stripe integrations, and processes mailers automatically to maximize conversions.
+              We build WordPress extensions that do not slow down your server. S22 Plugify ensures strict compliance with WordPress coding standards, provides simple one-click ZIP package installs, and handles license keys securely via our verification API.
             </p>
 
             <ul className="space-y-4.5">
               {[
-                'Zero layout shifting and optimized image compression loads.',
-                'Immediate client UI updates with Next.js Server Actions.',
-                'Persisted cart flows to allow shoppers to complete sessions later.',
-                'Stripe Webhooks guarantee zero double billing issues.',
+                'Optimized, database-efficient queries to maintain lightning-fast load times.',
+                'Secure REST verification API to activate and check plugin license slots.',
+                'Instant dashboard ZIP downloads and direct updates support.',
+                'Standard hooks compatibility to fit smoothly with any modern theme or block builder.',
               ].map((benefit, bidx) => (
                 <li key={bidx} className="flex items-start gap-3 text-sm text-muted-foreground">
                   <CheckCircle2 className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
@@ -77,43 +77,43 @@ export default async function LandingPage() {
             </ul>
           </div>
 
-          <div className="relative border border-border/60 bg-card rounded-2xl p-6 shadow-xl space-y-6">
+          <div className="relative border border-border/60 bg-card rounded-2xl p-6 shadow-xl space-y-6 text-left">
             <h3 className="text-base font-semibold text-foreground border-b border-border/60 pb-3 flex items-center gap-2">
               <ShoppingCart className="h-5 w-5 text-primary" />
-              Checkout Review
+              Licensing Checkout Review
             </h3>
 
             <div className="space-y-3.5 text-sm">
               <div className="flex justify-between text-muted-foreground">
-                <span>Starter Subscription</span>
-                <span>$29.00</span>
+                <span>WooCommerce Dynamic Pricing Plugin (Monthly - 3 Months)</span>
+                <span>$87.00</span>
               </div>
               <div className="flex justify-between text-muted-foreground">
                 <span>Discount (WELCOME50 - 50% Off)</span>
-                <span className="text-emerald-500">-$14.50</span>
+                <span className="text-emerald-500">-$43.50</span>
               </div>
               <hr className="border-border/60" />
               <div className="flex justify-between text-muted-foreground">
                 <span>Subtotal</span>
-                <span>$14.50</span>
+                <span>$43.50</span>
               </div>
               <div className="flex justify-between text-muted-foreground">
                 <span>Processing Fee (Stripe Rate)</span>
-                <span>$0.72</span>
+                <span>$1.56</span>
               </div>
               <div className="flex justify-between text-muted-foreground">
                 <span>Tax (8%)</span>
-                <span>$1.16</span>
+                <span>$3.48</span>
               </div>
               <hr className="border-border/60" />
               <div className="flex justify-between text-base font-bold text-foreground">
                 <span>Total Amount Due</span>
-                <span>$16.38</span>
+                <span>$48.54</span>
               </div>
             </div>
 
             <div className="p-3 bg-primary/10 rounded-xl border border-primary/20 text-center text-xs text-primary font-medium">
-              Checkout values computed server-side to prevent client pricing overrides.
+              Checkout values computed server-side. Activation limits provisioned upon payment confirmation.
             </div>
           </div>
         </div>
@@ -124,33 +124,33 @@ export default async function LandingPage() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-3xl mx-auto space-y-4">
             <h2 className="text-3xl font-bold tracking-tight text-foreground">
-              What Developers and Teams Say
+              Trusted by WordPress Agencies & Site Owners
             </h2>
             <p className="text-sm text-muted-foreground">
-              Trusted by creators scaling subscription products globally.
+              Helping businesses secure and scale their WordPress site architecture.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-16">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-16 text-left">
             {[
               {
-                quote: 'The 3D hero section and fluid transitions wowed our initial investors immediately. Extremely performant.',
-                author: 'Sarah Jenkins',
-                role: 'CEO, SynthWave UI',
-              },
-              {
-                quote: 'Using Next.js 16 server actions combined with Supabase RLS is a breeze. It cut our SaaS deployment cycle in half.',
+                quote: 'The license activation API integrated beautifully with my theme. Updates are served instantly, and our clients\' websites run faster than ever.',
                 author: 'Marcus Vance',
-                role: 'Fullstack Dev, CloudFlux',
+                role: 'Lead WordPress Developer, AgencyFlux',
               },
               {
-                quote: 'The custom mail template editor is a game changer for our operations. No-code team members manage emails directly.',
+                quote: 'S22 Plugify\'s plugins saved us weeks of custom WooCommerce work. The support is top-notch, and license slots are super easy to allocate.',
+                author: 'Sarah Jenkins',
+                role: 'Founder, ShopGrowth E-commerce',
+              },
+              {
+                quote: 'Since migrating our site enhancements to these lightweight plugins, our mobile conversion rate went up by 14%. Clean code, zero bloat.',
                 author: 'Elena Rostova',
-                role: 'Ops Director, TechSphere',
+                role: 'E-commerce Ops Director, TechSphere',
               },
             ].map((test, tidx) => (
               <Card key={tidx} className="border-border/60 bg-card p-6 flex flex-col justify-between gap-6 relative">
-                <MessageSquareQuote className="absolute top-4 right-4 h-10 w-10 text-muted/30" />
+                <MessageSquareQuote className="absolute top-4 right-4 h-10 w-10 text-muted/30 pointer-events-none" />
                 <p className="text-sm text-muted-foreground italic leading-relaxed relative z-10">
                   &ldquo;{test.quote}&rdquo;
                 </p>
@@ -164,9 +164,6 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* 6. Pricing Section */}
-      {/* <Pricing /> */}
-
       {/* 7. FAQ Accordions */}
       <FAQ />
 
@@ -175,13 +172,13 @@ export default async function LandingPage() {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(255,255,255,0.15),transparent)] pointer-events-none" />
         <div className="mx-auto max-w-5xl px-4 sm:px-6 text-center space-y-6 relative z-10">
           <h2 className="text-3xl sm:text-5xl font-bold tracking-tight">
-            Have Questions? Talk to Our Team
+            Need a Custom Extension? Let&apos;s Build It
           </h2>
           <p className="text-sm sm:text-base text-primary-foreground/80 max-w-xl mx-auto leading-relaxed">
-            Need custom integrations, custom enterprise billing setup, or email templates walkthrough? We are here to help.
+            Need custom WooCommerce features, integration with corporate APIs, or custom license setups? We are here to help.
           </p>
           <div className="pt-4">
-            <Button href="/contact" size="lg" variant="secondary" className="inline-flex items-center gap-2">
+            <Button href="/contact" size="lg" variant="secondary" className="inline-flex items-center gap-2 font-bold">
               Get In Touch
               <ArrowRight className="h-4 w-4 text-primary" />
             </Button>

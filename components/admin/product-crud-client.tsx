@@ -27,6 +27,7 @@ interface ProductVariant {
   price: number;
   domain_count?: number;
   layout_count?: number;
+  billing_cycle?: 'monthly' | 'yearly';
 }
 
 interface Product {
@@ -66,10 +67,11 @@ export function ProductCrudClient({ initialProducts }: { initialProducts: Produc
     price: number;
     domain_count: number;
     layout_count: number;
+    billing_cycle?: 'monthly' | 'yearly';
   }
   const [variants, setVariants] = React.useState<ClientProductVariant[]>([
-    { name: 'Single Domain single layout', price: 99, domain_count: 1, layout_count: 1 },
-    { name: 'Multiple domain multiple layout', price: 299, domain_count: 5, layout_count: 5 }
+    { name: 'Single Domain single layout', price: 99, domain_count: 1, layout_count: 1, billing_cycle: 'monthly' },
+    { name: 'Multiple domain multiple layout', price: 299, domain_count: 5, layout_count: 5, billing_cycle: 'monthly' }
   ]);
 
   const {
@@ -91,8 +93,8 @@ export function ProductCrudClient({ initialProducts }: { initialProducts: Produc
     setPluginZip(null);
     setKeepExistingPlugin(true);
     setVariants([
-      { name: 'Single Domain single layout', price: 99, domain_count: 1, layout_count: 1 },
-      { name: 'Multiple domain multiple layout', price: 299, domain_count: 5, layout_count: 5 }
+      { name: 'Single Domain single layout', price: 99, domain_count: 1, layout_count: 1, billing_cycle: 'monthly' },
+      { name: 'Multiple domain multiple layout', price: 299, domain_count: 5, layout_count: 5, billing_cycle: 'monthly' }
     ]);
     reset({ name: '', description: '', price: 99 });
     setCurrentStep(1);
@@ -114,12 +116,13 @@ export function ProductCrudClient({ initialProducts }: { initialProducts: Produc
           name: v.name,
           price: Number(v.price),
           domain_count: Number(v.domain_count) || 1,
-          layout_count: Number((v as any).layout_count) || 1
+          layout_count: Number((v as any).layout_count) || 1,
+          billing_cycle: (v as any).billing_cycle || 'monthly'
         }))
       );
     } else {
       setVariants([
-        { name: 'Single Domain single layout', price: Number(product.price) || 99, domain_count: 1, layout_count: 1 }
+        { name: 'Single Domain single layout', price: Number(product.price) || 99, domain_count: 1, layout_count: 1, billing_cycle: 'monthly' }
       ]);
     }
 
@@ -332,7 +335,8 @@ export function ProductCrudClient({ initialProducts }: { initialProducts: Produc
       name: v.name || 'Standard Plan',
       price: Number(v.price) || 0,
       domain_count: Number(v.domain_count) || 1,
-      layout_count: Number(v.layout_count) || 1
+      layout_count: Number(v.layout_count) || 1,
+      billing_cycle: v.billing_cycle || 'monthly'
     }));
     formData.append('variants', JSON.stringify(variantsArr));
 
@@ -594,7 +598,7 @@ export function ProductCrudClient({ initialProducts }: { initialProducts: Produc
                       e.stopPropagation();
                       setVariants([
                         ...variants,
-                        { name: `Variant ${variants.length + 1}`, price: 99, domain_count: 1, layout_count: 1 }
+                        { name: `Variant ${variants.length + 1}`, price: 99, domain_count: 1, layout_count: 1, billing_cycle: 'monthly' }
                       ]);
                     }}
                     className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs cursor-pointer bg-primary hover:bg-primary/80 text-white font-bold"
@@ -686,6 +690,22 @@ export function ProductCrudClient({ initialProducts }: { initialProducts: Produc
                               setVariants(newVariants);
                             }}
                           />
+                        </div>
+
+                        <div className="flex flex-col gap-1.5">
+                          <label className="text-[10px] font-bold text-slate-400 capitalize tracking-wider">Billing Cycle</label>
+                          <select
+                            value={variant.billing_cycle || 'monthly'}
+                            onChange={(e) => {
+                              const newVariants = [...variants];
+                              newVariants[idx].billing_cycle = e.target.value as 'monthly' | 'yearly';
+                              setVariants(newVariants);
+                            }}
+                            className="flex h-9 w-full rounded-xl border border-slate-250 bg-white px-3 py-1 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-inner"
+                          >
+                            <option value="monthly">Monthly</option>
+                            <option value="yearly">Yearly</option>
+                          </select>
                         </div>
                       </div>
                     </div>

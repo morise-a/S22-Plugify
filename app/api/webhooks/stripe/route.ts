@@ -87,15 +87,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ received: true, message: 'Already marked as paid.' });
     }
 
-    // Generate a secure license key
-    const licenseKey = `S22-${crypto.randomBytes(16).toString('hex').toUpperCase().match(/.{4}/g)?.join('-')}`;
-
-    // 1. Update Order Status & License Key
+    // 1. Update Order Status
     const { error: orderUpdateErr } = await supabaseAdmin
       .from('orders')
       .update({
         status: 'paid',
-        license_key: licenseKey,
         updated_at: new Date().toISOString(),
       })
       .eq('id', order.id);
@@ -138,12 +134,28 @@ export async function POST(request: Request) {
 
     if (orderItems && order.user_id) {
       for (const item of orderItems) {
-        // If product name includes Subscription or Plan, write to subscriptions table
+        // If product name includes Subscription or Plan or Pro or Plugin, write to subscriptions table
         const name = item.product_name.toLowerCase();
-        if (name.includes('subscription') || name.includes('plan') || name.includes('pro') || name.includes('starter') || name.includes('enterprise')) {
-          const startDate = new Date();
-          const endDate = new Date();
-          
+
+        // Generate a secure license key for each product in the order
+        const itemLicenseKey = `S22-${crypto.randomBytes(16).toString('hex').toUpperCase().match(/.{4}/g)?.join('-')}`;
+        const purchasedDate = new Date();
+        const expiryDate = new Date();
+        
+        let durationMonths = 12; // Default to 12 months
+        if (name.includes('subscription') || name.includes('plan') || name.includes('pro') || name.includes('starter') || name.includes('enterprise') || name.includes('plugin') || name.includes('license') || name.includes('monthly') || name.includes('yearly')) {
+          durationMonths = 1;
+          if (name.includes('yearly')) {
+            durationMonths = 12;
+          } else {
+            const match = name.match(/monthly - (\d+) month/);
+            if (match) {
+              durationMonths = parseInt(match[1]);
+            }
+          }
+        }
+        expiryDate.setMonth(purchasedDate.getMonth() + durationMonths);
+        if (name.includes('subscription') || name.includes('plan') || name.includes('pro') || name.includes('starter') || name.includes('enterprise') || name.includes('plugin') || name.includes('license') || name.includes('monthly') || name.includes('yearly')) {
           let durationMonths = 1;
           if (name.includes('yearly')) {
             durationMonths = 12;
@@ -154,24 +166,54 @@ export async function POST(request: Request) {
             }
           }
           
-          endDate.setMonth(startDate.getMonth() + durationMonths);
+          // Check if there is already an active subscription for this user and product
+          const { data: existingSub } = await supabaseAdmin
+            .from('subscriptions')
+            .select('*')
+            .eq('user_id', order.user_id)
+            .eq('product_id', item.product_id)
+            .eq('status', 'active')
+            .gt('current_period_end', new Date().toISOString())
+            .order('current_period_end', { ascending: false })
+            .limit(1)
+            .maybeSingle();
 
-          await supabaseAdmin.from('subscriptions').insert({
-            user_id: order.user_id,
-            product_id: item.product_id,
-            status: 'active',
-            stripe_subscription_id: `sub_${Math.random().toString(36).substring(2, 9)}`,
-            current_period_start: startDate.toISOString(),
-            current_period_end: endDate.toISOString(),
-          });
+          if (existingSub) {
+            // Extend the existing subscription end date
+            const newEndDate = new Date(existingSub.current_period_end);
+            newEndDate.setMonth(newEndDate.getMonth() + durationMonths);
+
+            await supabaseAdmin
+              .from('subscriptions')
+              .update({
+                current_period_end: newEndDate.toISOString(),
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', existingSub.id);
+          } else {
+            // Insert a new subscription
+            const startDate = new Date();
+            const endDate = new Date();
+            endDate.setMonth(startDate.getMonth() + durationMonths);
+
+            await supabaseAdmin.from('subscriptions').insert({
+              user_id: order.user_id,
+              product_id: item.product_id,
+              status: 'active',
+              stripe_subscription_id: `sub_${Math.random().toString(36).substring(2, 9)}`,
+              current_period_start: startDate.toISOString(),
+              current_period_end: endDate.toISOString(),
+            });
+          }
         }
 
         // Provision purchased domains slots dynamically using domain_count stored on variant
         let slotsCount = 1;
-        let variantName = 'Single Domain single layout';
+        let variantName = 'Standard';
         let foundVariant = false;
 
-        const nameParts = item.product_name.split(' - ');
+        const nameWithoutCycle = item.product_name.split(' (')[0];
+        const nameParts = nameWithoutCycle.split(' - ');
         if (nameParts.length > 1) {
           const parsedVariantName = nameParts.slice(1).join(' - ').trim();
           
@@ -203,15 +245,23 @@ export async function POST(request: Request) {
           }
         }
 
-        // Legacy/fallback check
+        // Fallback: query database for first variant of this product if none matches explicitly
         if (!foundVariant) {
-          const isMulti = name.includes('multiple domain') || name.includes('multiple layout') || name.includes('multi domain');
-          slotsCount = isMulti ? 5 : 1;
-          variantName = isMulti ? 'Multiple domain multiple layout' : 'Single Domain single layout';
+          const { data: fallbackPv } = await supabaseAdmin
+            .from('product_variants')
+            .select('domain_count, name')
+            .eq('product_id', item.product_id)
+            .limit(1);
+            
+          if (fallbackPv && fallbackPv.length > 0) {
+            slotsCount = fallbackPv[0].domain_count || 1;
+            variantName = fallbackPv[0].name;
+          }
         }
         
-        const domainsList = order.domain
-          ? order.domain.split(',').map((d: string) => d.trim().toLowerCase()).filter(Boolean)
+        const checkoutDomain = paymentIntent.metadata.domain || '';
+        const domainsList = checkoutDomain
+          ? checkoutDomain.split(',').map((d: string) => d.trim().toLowerCase()).filter(Boolean)
           : [];
 
         for (let i = 0; i < slotsCount; i++) {
@@ -224,6 +274,24 @@ export async function POST(request: Request) {
             domain_name: domainName,
             variant_name: variantName,
           });
+        }
+
+        // Insert into license_keys table (with resolved variant name saved in plan_name)
+        const { error: licErr } = await supabaseAdmin
+          .from('license_keys')
+          .insert({
+            user_id: order.user_id,
+            order_id: order.id,
+            product_id: item.product_id,
+            product_name: item.product_name,
+            plan_name: variantName,
+            license_key: itemLicenseKey,
+            purchased_date: purchasedDate.toISOString(),
+            expiry_date: expiryDate.toISOString(),
+          });
+          
+        if (licErr) {
+          console.error('Failed to create product license key:', licErr);
         }
       }
     }
@@ -256,16 +324,39 @@ export async function POST(request: Request) {
 
         const rawHtml = template?.html_content || defaultHtml;
 
+        // Fetch all generated license keys for this order
+        let generatedLicenses: any[] = [];
+        if (order.user_id) {
+          const { data: licenses } = await supabaseAdmin
+            .from('license_keys')
+            .select('product_name, license_key')
+            .eq('order_id', order.id);
+          generatedLicenses = licenses || [];
+        }
+
+        let licenseKeysDisplay = 'N/A';
+        if (generatedLicenses.length > 0) {
+          if (generatedLicenses.length === 1) {
+            licenseKeysDisplay = generatedLicenses[0].license_key;
+          } else {
+            licenseKeysDisplay = generatedLicenses.map((l: any) => `${l.product_name}: ${l.license_key}`).join('<br/>');
+          }
+        }
+
         let emailBody = rawHtml
           .replace(/{{customer_name}}/g, customerName)
           .replace(/{{order_number}}/g, order.order_number)
           .replace(/{{product_name}}/g, itemsList)
           .replace(/{{payment_amount}}/g, `$${order.total.toFixed(2)}`)
-          .replace(/{{license_key}}/g, licenseKey);
+          .replace(/{{license_key}}/g, licenseKeysDisplay);
 
         // If the custom template didn't have the license_key placeholder, append it cleanly at the bottom
         if (template?.html_content && !template.html_content.includes('{{license_key}}')) {
-          emailBody += `<p style="margin-top: 20px; padding: 15px; background-color: #f8fafc; border: 1px dashed #e2e8f0; border-radius: 8px;">Your Product License Key: <strong style="font-family: monospace; font-size: 1.1em; letter-spacing: 0.5px;">${licenseKey}</strong></p>`;
+          if (generatedLicenses.length > 1) {
+            emailBody += `<div style="margin-top: 20px; padding: 15px; background-color: #f8fafc; border: 1px dashed #e2e8f0; border-radius: 8px;"><strong>Your Product License Keys:</strong><br/>${licenseKeysDisplay}</div>`;
+          } else {
+            emailBody += `<p style="margin-top: 20px; padding: 15px; background-color: #f8fafc; border: 1px dashed #e2e8f0; border-radius: 8px;">Your Product License Key: <strong style="font-family: monospace; font-size: 1.1em; letter-spacing: 0.5px;">${licenseKeysDisplay}</strong></p>`;
+          }
         }
 
         // Send email, passing the admin service role client for settings retrieval

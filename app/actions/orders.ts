@@ -93,6 +93,8 @@ export async function createPaymentIntentAction(
     let price = Number(dbProduct.price);
     let displayName = dbProduct.name;
 
+    let isExplicitYearlyVariant = false;
+
     if (item.variantId) {
       const dbVariant = dbVariants.find((v) => v.id === item.variantId && v.product_id === item.id);
       if (!dbVariant) {
@@ -100,19 +102,24 @@ export async function createPaymentIntentAction(
       }
       price = Number(dbVariant.price);
       displayName = `${dbProduct.name} - ${dbVariant.name}`;
+      if (dbVariant.billing_cycle === 'yearly') {
+        isExplicitYearlyVariant = true;
+      }
     }
 
     // Apply billing cycle price multiplier and format display name
-    const months = item.billingCycle === 'yearly' ? 12 : (item.durationMonths || 1);
-    const cycleLabel = item.billingCycle === 'yearly' ? 'Yearly - 12 Months' : `Monthly - ${months} Month${months > 1 ? 's' : ''}`;
+    const months = (isExplicitYearlyVariant || item.billingCycle === 'yearly') ? 12 : (item.durationMonths || 1);
+    const cycleLabel = (isExplicitYearlyVariant || item.billingCycle === 'yearly') ? 'Yearly - 12 Months' : `Monthly - ${months} Month${months > 1 ? 's' : ''}`;
     displayName = `${displayName} (${cycleLabel})`;
 
-    if (item.billingCycle === 'yearly') {
+    if (isExplicitYearlyVariant) {
+      // It is already yearly price, no multiplier
+      price = price;
+    } else if (item.billingCycle === 'yearly') {
       price = price * 10; // 2 months free discount
     } else {
       price = price * months;
     }
-
     subtotal += price * item.quantity;
     itemDetails.push({
       id: dbProduct.id,
@@ -163,6 +170,7 @@ export async function createPaymentIntentAction(
         userId: user?.id || 'guest',
         email: billingInfo.email,
         couponCode: couponCode || '',
+        domain: billingInfo.domain || '',
       },
     });
 
@@ -183,7 +191,6 @@ export async function createPaymentIntentAction(
         billing_last_name: billingInfo.lastName,
         billing_email: billingInfo.email,
         billing_phone: billingInfo.phone,
-        domain: billingInfo.domain,
         billing_address_line1: billingInfo.addressLine1,
         billing_address_line2: billingInfo.addressLine2 || null,
         billing_city: billingInfo.city,

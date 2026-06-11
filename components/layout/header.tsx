@@ -4,6 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ShoppingCart, User, Menu, X, LogOut } from 'lucide-react';
+import { NotificationBell } from '../ui/notification-bell';
 import { useCartStore } from '../../lib/store/use-cart-store';
 import { Button } from '../ui/button';
 import { signOutAction } from '../../app/actions/auth';
@@ -88,6 +89,9 @@ export function Header({ user }: HeaderProps) {
 
         {/* Action buttons */}
         <div className="flex items-center gap-4">
+          {/* Notification bell — only for logged in users */}
+          {user && <NotificationBell variant="customer" />}
+
           {/* Cart button */}
           <Link href="/cart" className="relative p-2 text-muted-foreground hover:text-foreground transition-colors">
             <ShoppingCart className="h-5 w-5" />

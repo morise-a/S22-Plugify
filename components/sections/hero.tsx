@@ -47,28 +47,27 @@ export function Hero() {
             {/* Sparkle Tag */}
             <div className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold bg-primary/10 text-primary border border-primary/20 animate-pulse">
               <Sparkles className="h-3 w-3" />
-              <span>Next-Generation SaaS eCommerce</span>
+              <span>Premium WordPress Plugins Hub</span>
             </div>
 
             {/* Hero Copy */}
             <div className="space-y-4">
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-tight bg-gradient-to-r from-foreground via-foreground/90 to-primary bg-clip-text text-transparent">
-                Launch Your Subscription Product in Minutes
+                Elevate Your WordPress Sites with Premium Plugins
               </h1>
               <p className="text-base sm:text-lg text-muted-foreground leading-relaxed max-w-xl mx-auto lg:mx-0">
-                A production-ready eCommerce suite with customer portal, advanced metrics, SMTP mailers, and automated Stripe billing integrations.
+                Explore high-performance, lightweight, and developer-friendly WordPress extensions. Get instant license key activations, direct zip downloads, and automatic dashboard updates.
               </p>
             </div>
 
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row justify-center lg:justify-start items-center gap-4 w-full sm:w-auto">
-              <Button href="/products" size="lg" className="w-full sm:w-auto inline-flex items-center justify-center gap-2">
-                Browse Products
+              <Button href="/products" size="lg" className="w-full sm:w-auto inline-flex items-center justify-center gap-2 font-bold">
+                Explore Plugins
                 <ArrowRight className="h-4 w-4" />
               </Button>
-              <Button href="/contact" variant="outline" size="lg" className="w-full sm:w-auto inline-flex items-center justify-center gap-2">
-                <Play className="h-4 w-4 fill-current" />
-                Book a Demo
+              <Button href="/contact" variant="outline" size="lg" className="w-full sm:w-auto inline-flex items-center justify-center gap-2 font-bold">
+                Request Custom Plugin
               </Button>
             </div>
           </div>
@@ -89,7 +88,7 @@ export function Hero() {
                   <span className="w-3 h-3 rounded-full bg-amber-400" />
                   <span className="w-3 h-3 rounded-full bg-green-400" />
                 </div>
-                <span className="text-[10px] text-muted-foreground font-mono">dashboard.solution22.com</span>
+                <span className="text-[10px] text-muted-foreground font-mono">licensing.s22plugify.com</span>
                 <div className="w-8 h-2" />
               </div>
 
@@ -100,22 +99,22 @@ export function Hero() {
                   {/* Stat Card 1 */}
                   <div className="p-3.5 rounded-xl border border-border/60 bg-background/50 flex items-center justify-between">
                     <div>
-                      <p className="text-[10px] text-muted-foreground font-medium">MRR</p>
-                      <h4 className="text-sm font-bold text-foreground mt-0.5">$45,290.00</h4>
+                      <p className="text-[10px] text-muted-foreground font-medium">Active Activations</p>
+                      <h4 className="text-sm font-bold text-foreground mt-0.5">14,290+</h4>
                     </div>
                     <div className="p-1.5 bg-indigo-500/10 text-indigo-500 rounded-lg">
-                      <DollarSign className="h-3.5 w-3.5" />
+                      <Users className="h-3.5 w-3.5" />
                     </div>
                   </div>
 
                   {/* Stat Card 2 */}
                   <div className="p-3.5 rounded-xl border border-border/60 bg-background/50 flex items-center justify-between">
                     <div>
-                      <p className="text-[10px] text-muted-foreground font-medium">Customers</p>
-                      <h4 className="text-sm font-bold text-foreground mt-0.5">1,482</h4>
+                      <p className="text-[10px] text-muted-foreground font-medium">PageSpeed Grade</p>
+                      <h4 className="text-sm font-bold text-foreground mt-0.5">99/100 A</h4>
                     </div>
                     <div className="p-1.5 bg-emerald-500/10 text-emerald-500 rounded-lg">
-                      <Users className="h-3.5 w-3.5" />
+                      <TrendingUp className="h-3.5 w-3.5" />
                     </div>
                   </div>
                 </div>
@@ -123,8 +122,8 @@ export function Hero() {
                 {/* Big Row Graphic Mockup */}
                 <div className="p-4 rounded-xl border border-border/60 bg-background/50 flex flex-col gap-3">
                   <div className="flex justify-between items-center">
-                    <h4 className="text-xs font-semibold text-foreground">Revenue Forecast</h4>
-                    <span className="text-[9px] px-1.5 py-0.5 bg-indigo-500/10 text-primary rounded font-medium">Monthly</span>
+                    <h4 className="text-xs font-semibold text-foreground">API Activations Trend</h4>
+                    <span className="text-[9px] px-1.5 py-0.5 bg-indigo-500/10 text-primary rounded font-medium">Live</span>
                   </div>
                   {/* SVG mock Chart */}
                   <div className="h-24 flex items-end justify-between gap-1 pt-2">

@@ -153,12 +153,13 @@ export async function createProductAction(formData: FormData) {
     try {
       const variants = JSON.parse(variantsStr);
       if (Array.isArray(variants) && variants.length > 0) {
-        const variantRows = variants.map((v: { name: string; price: number; domain_count?: number; layout_count?: number }) => ({
+        const variantRows = variants.map((v: { name: string; price: number; domain_count?: number; layout_count?: number; billing_cycle?: string }) => ({
           product_id: product.id,
           name: v.name,
           price: v.price,
           domain_count: Number(v.domain_count) || 1,
           layout_count: Number(v.layout_count) || 1,
+          billing_cycle: v.billing_cycle || 'monthly',
         }));
         const { error: variantError } = await supabase
           .from('product_variants')
@@ -292,12 +293,13 @@ export async function updateProductAction(productId: string, formData: FormData)
     try {
       const variants = JSON.parse(variantsStr);
       if (Array.isArray(variants) && variants.length > 0) {
-        const variantRows = variants.map((v: { name: string; price: number; domain_count?: number; layout_count?: number }) => ({
+        const variantRows = variants.map((v: { name: string; price: number; domain_count?: number; layout_count?: number; billing_cycle?: string }) => ({
           product_id: productId,
           name: v.name,
           price: v.price,
           domain_count: Number(v.domain_count) || 1,
           layout_count: Number(v.layout_count) || 1,
+          billing_cycle: v.billing_cycle || 'monthly',
         }));
         const { error: variantError } = await supabase
           .from('product_variants')

@@ -1,72 +1,100 @@
 import * as React from 'react';
 import { createClient } from '../../../lib/supabase/server';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { CustomerDashboardClient } from '../../../components/customer/customer-dashboard-client';
 
 export const revalidate = 0; // Disable caching to show real-time account updates
 
 export default async function CustomerDashboardPage() {
-  const supabase = await createClient();
+  let authUser = null;
+  let userProfile = null;
+  let subscriptions: any[] = [];
+  let orders: any[] = [];
+  let purchasedDomains: any[] = [];
+  let licenseKeys: any[] = [];
+  let notifications: any[] = [];
 
-  const { data: { user: authUser } } = await supabase.auth.getUser();
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase.auth.getUser();
+    authUser = data?.user || null;
+
+    if (authUser) {
+      // Use service-role client on the server to bypass RLS policies
+      const supabaseAdmin = createSupabaseClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      );
+
+      // 1. Fetch user profile from DB
+      const { data: profile } = await supabaseAdmin
+        .from('users')
+        .select(`
+          *,
+          profiles (*)
+        `)
+        .eq('id', authUser.id)
+        .single();
+      userProfile = profile;
+
+      // 2. Fetch active subscriptions with product details
+      const { data: subs } = await supabaseAdmin
+        .from('subscriptions')
+        .select(`
+          *,
+          products (name, price)
+        `)
+        .eq('user_id', authUser.id)
+        .order('created_at', { ascending: false });
+      subscriptions = subs || [];
+
+      // 3. Fetch customer's paid orders to list purchased software
+      const { data: ords } = await supabaseAdmin
+        .from('orders')
+        .select(`
+          *,
+          order_items (
+            *,
+            products (
+              plugin_file_url
+            )
+          )
+        `)
+        .eq('user_id', authUser.id)
+        .order('created_at', { ascending: false });
+      orders = ords || [];
+
+      // 3b. Fetch customer's purchased domains configuration slots
+      const { data: domains } = await supabaseAdmin
+        .from('purchased_domains')
+        .select(`
+          *,
+          products (name)
+        `)
+        .eq('user_id', authUser.id)
+        .order('created_at', { ascending: false });
+      purchasedDomains = domains || [];
+
+      // 3c. Fetch customer's license keys
+      const { data: licenses } = await supabaseAdmin
+        .from('license_keys')
+        .select('*')
+        .eq('user_id', authUser.id);
+      licenseKeys = licenses || [];
+
+      // 4. Fetch unread notifications
+      const { data: notifs } = await supabaseAdmin
+        .from('notifications')
+        .select('*')
+        .eq('user_id', authUser.id)
+        .order('created_at', { ascending: false });
+      notifications = notifs || [];
+    }
+  } catch (error) {
+    console.error('Failed to load customer dashboard data:', error);
+  }
+
   if (!authUser) return null;
-
-  // 1. Fetch user profile from DB
-  const { data: userProfile } = await supabase
-    .from('users')
-    .select(`
-      *,
-      profiles (*)
-    `)
-    .eq('id', authUser.id)
-    .single();
-
-  // 2. Fetch active subscriptions with product details
-  const { data: subscriptions } = await supabase
-    .from('subscriptions')
-    .select(`
-      *,
-      products (name, price)
-    `)
-    .eq('user_id', authUser.id)
-    .order('created_at', { ascending: false });
-
-  // 3. Fetch customer's paid orders to list purchased software
-  const { data: orders } = await supabase
-    .from('orders')
-    .select(`
-      *,
-      order_items (
-        *,
-        products (
-          plugin_file_url
-        )
-      )
-    `)
-    .eq('user_id', authUser.id)
-    .order('created_at', { ascending: false });
-
-  // 3b. Fetch customer's purchased domains configuration slots
-  const { data: purchasedDomains } = await supabase
-    .from('purchased_domains')
-    .select(`
-      *,
-      products (name)
-    `)
-    .eq('user_id', authUser.id)
-    .order('created_at', { ascending: false });
-
-  // 3c. Fetch customer's license keys
-  const { data: licenseKeys } = await supabase
-    .from('license_keys')
-    .select('*')
-    .eq('user_id', authUser.id);
-
-  // 4. Fetch unread notifications
-  const { data: notifications } = await supabase
-    .from('notifications')
-    .select('*')
-    .eq('user_id', authUser.id)
-    .order('created_at', { ascending: false });
 
   return (
     <div className="space-y-6 flex flex-col justify-start">

@@ -1,10 +1,16 @@
-import { loadStripe } from '@stripe/stripe-js';
+import { loadStripe, Stripe } from '@stripe/stripe-js';
+
+let stripePromiseCache: Promise<Stripe | null> | null = null;
 
 /**
  * Loads Stripe.js on the client, fetching the publishable key from the DB
  * or falling back to the environment variables.
  */
-export async function getStripeClientInstance(customPublishableKey?: string) {
+export function getStripeClientInstance(customPublishableKey?: string): Promise<Stripe | null> {
+  if (stripePromiseCache) {
+    return stripePromiseCache;
+  }
+
   let publishableKey = customPublishableKey;
 
   if (!publishableKey) {
@@ -14,8 +20,10 @@ export async function getStripeClientInstance(customPublishableKey?: string) {
 
   if (!publishableKey || publishableKey.includes('placeholder')) {
     console.warn('Stripe publishable key is placeholder or empty.');
-    return null;
+    return Promise.resolve(null);
   }
 
-  return loadStripe(publishableKey);
+  stripePromiseCache = loadStripe(publishableKey);
+  return stripePromiseCache;
 }
+

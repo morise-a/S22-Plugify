@@ -40,22 +40,21 @@ export function ProductDetailClient({ product, relatedProducts }: { product: Pro
   const { showToast } = useToast();
   const addToCart = useCartStore((state) => state.addToCart);
 
-  const [selectedImage, setSelectedImage] = React.useState<string>('');
+  const images = product.product_images || [];
+  const mainImage = images.find((img) => !img.is_screenshot)?.image_url
+    || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80';
+  const screenshots = images.filter((img) => img.is_screenshot);
+
+  const [selectedImage, setSelectedImage] = React.useState<string>(mainImage);
   const [quantity, setQuantity] = React.useState<number>(1);
   const initialVariant = product.product_variants && product.product_variants.length > 0
     ? (product.product_variants.find((v) => (v.billing_cycle || 'monthly') === 'monthly') || product.product_variants[0])
     : null;
   const [selectedVariant, setSelectedVariant] = React.useState<ProductVariant | null>(initialVariant);
-  
+
   // Billing cycle states
   const [billingCycle, setBillingCycle] = React.useState<'monthly' | 'yearly'>('monthly');
   const [durationMonths, setDurationMonths] = React.useState<number>(1);
-
-  const images = product.product_images || [];
-  const mainImage = images.find((img) => !img.is_screenshot)?.image_url
-    || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80';
-
-  const screenshots = images.filter((img) => img.is_screenshot);
 
   React.useEffect(() => {
     setSelectedImage(mainImage);
@@ -75,7 +74,7 @@ export function ProductDetailClient({ product, relatedProducts }: { product: Pro
   }, [billingCycle, product.product_variants]);
 
   const basePrice = selectedVariant ? Number(selectedVariant.price) : Number(product.price);
-  
+
   // A variant is yearly flat rate if its cycle is yearly. Otherwise, calculations depend on billingCycle toggle.
   const isYearlyVariant = selectedVariant && selectedVariant.billing_cycle === 'yearly';
   const displayPrice = isYearlyVariant
@@ -85,23 +84,23 @@ export function ProductDetailClient({ product, relatedProducts }: { product: Pro
   const getDates = () => {
     const today = new Date();
     const startStr = today.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    
+
     const end = new Date(today);
     const monthsToAdd = (isYearlyVariant || billingCycle === 'yearly') ? 12 : durationMonths;
     end.setMonth(today.getMonth() + monthsToAdd);
     const endStr = end.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    
+
     return { startStr, endStr };
   };
 
   const handleAddToCart = () => {
     const { startStr, endStr } = getDates();
     const months = (isYearlyVariant || billingCycle === 'yearly') ? 12 : durationMonths;
-    
-    const cycleLabel = isYearlyVariant 
-      ? 'Yearly' 
+
+    const cycleLabel = isYearlyVariant
+      ? 'Yearly'
       : (billingCycle === 'yearly' ? 'Yearly' : `${durationMonths} Month${durationMonths > 1 ? 's' : ''}`);
-      
+
     const itemVariantName = selectedVariant
       ? `${selectedVariant.name} (${cycleLabel})`
       : `Standard (${cycleLabel})`;
@@ -120,7 +119,7 @@ export function ProductDetailClient({ product, relatedProducts }: { product: Pro
       startDate: startStr,
       endDate: endStr,
     } as any, quantity);
-    
+
     showToast(
       'Added to Cart!',
       'success',
@@ -131,11 +130,11 @@ export function ProductDetailClient({ product, relatedProducts }: { product: Pro
   const handleBuyNow = () => {
     const { startStr, endStr } = getDates();
     const months = (isYearlyVariant || billingCycle === 'yearly') ? 12 : durationMonths;
-    
-    const cycleLabel = isYearlyVariant 
-      ? 'Yearly' 
+
+    const cycleLabel = isYearlyVariant
+      ? 'Yearly'
       : (billingCycle === 'yearly' ? 'Yearly' : `${durationMonths} Month${durationMonths > 1 ? 's' : ''}`);
-      
+
     const itemVariantName = selectedVariant
       ? `${selectedVariant.name} (${cycleLabel})`
       : `Standard (${cycleLabel})`;
@@ -261,7 +260,7 @@ export function ProductDetailClient({ product, relatedProducts }: { product: Pro
           </div>
 
           {product.product_variants && product.product_variants.length > 0 && (
-            <div className="space-y-3 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800/60">
+            <div className="space-y-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
               <h3 className="text-xs font-bold text-slate-500 capitalize tracking-wider">Select License Variant</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {product.product_variants
@@ -274,8 +273,8 @@ export function ProductDetailClient({ product, relatedProducts }: { product: Pro
                         type="button"
                         onClick={() => setSelectedVariant(v)}
                         className={`flex flex-col text-left p-3.5 rounded-xl border text-xs cursor-pointer transition-all duration-150 ${isSelected
-                          ? 'border-indigo-650 bg-indigo-50/50 dark:bg-indigo-950/20 text-indigo-900 dark:text-indigo-200 ring-1 ring-indigo-650'
-                          : 'border-slate-200 dark:border-slate-800 bg-card hover:bg-slate-100/50 dark:hover:bg-slate-800/40 text-slate-700 dark:text-slate-300'
+                          ? 'border-indigo-650 bg-indigo-50/50 text-indigo-900 ring-1 ring-indigo-650'
+                          : 'border-slate-200 bg-card hover:bg-slate-100/50 text-slate-700 '
                           }`}
                       >
                         <span className="font-bold mb-1">{v.name}</span>
@@ -288,9 +287,9 @@ export function ProductDetailClient({ product, relatedProducts }: { product: Pro
           )}
 
           {/* Billing Cycle & Duration Configuration */}
-          <div className="space-y-4 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800/60">
+          <div className="space-y-4 p-4 bg-slate-50 rounded-2xl border border-slate-100">
             <h3 className="text-xs font-bold text-slate-500 capitalize tracking-wider">Select Billing Cycle</h3>
-            
+
             <div className="flex gap-3">
               <button
                 type="button"
@@ -298,16 +297,14 @@ export function ProductDetailClient({ product, relatedProducts }: { product: Pro
                   setBillingCycle('monthly');
                   setDurationMonths(1);
                 }}
-                className={`flex-1 flex items-center justify-between py-3.5 px-4.5 rounded-xl border text-xs font-bold transition-all duration-200 cursor-pointer focus:outline-none ${
-                  billingCycle === 'monthly'
-                    ? 'border-indigo-650 bg-indigo-50/60 dark:bg-indigo-950/20 text-indigo-950 dark:text-indigo-200 ring-1 ring-indigo-650'
-                    : 'border-slate-200 dark:border-slate-800 bg-card hover:bg-slate-100/50 dark:hover:bg-slate-800/40 text-slate-700 dark:text-slate-300'
-                }`}
+                className={`flex-1 flex items-center justify-between py-3.5 px-4.5 rounded-xl border text-xs font-bold transition-all duration-200 cursor-pointer focus:outline-none ${billingCycle === 'monthly'
+                  ? 'border-indigo-650 bg-indigo-50/60 text-indigo-950 ring-1 ring-indigo-650'
+                  : 'border-slate-200 bg-card hover:bg-slate-100/50 text-slate-700'
+                  }`}
               >
                 <span className="flex items-center gap-2.5">
-                  <span className={`h-4.5 w-4.5 rounded-full border flex items-center justify-center transition-all ${
-                    billingCycle === 'monthly' ? 'border-indigo-650 bg-indigo-650' : 'border-slate-300 dark:border-slate-700'
-                  }`}>
+                  <span className={`h-4.5 w-4.5 rounded-full border flex items-center justify-center transition-all ${billingCycle === 'monthly' ? 'border-indigo-650 bg-indigo-650' : 'border-slate-300'
+                    }`}>
                     {billingCycle === 'monthly' && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
                   </span>
                   Monthly Cycle
@@ -319,21 +316,19 @@ export function ProductDetailClient({ product, relatedProducts }: { product: Pro
                   setBillingCycle('yearly');
                   setDurationMonths(12);
                 }}
-                className={`flex-1 flex items-center justify-between py-3.5 px-4.5 rounded-xl border text-xs font-bold transition-all duration-200 cursor-pointer focus:outline-none ${
-                  billingCycle === 'yearly'
-                    ? 'border-indigo-650 bg-indigo-50/60 dark:bg-indigo-950/20 text-indigo-950 dark:text-indigo-200 ring-1 ring-indigo-650'
-                    : 'border-slate-200 dark:border-slate-800 bg-card hover:bg-slate-100/50 dark:hover:bg-slate-800/40 text-slate-700 dark:text-slate-300'
-                }`}
+                className={`flex-1 flex items-center justify-between py-3.5 px-4.5 rounded-xl border text-xs font-bold transition-all duration-200 cursor-pointer focus:outline-none ${billingCycle === 'yearly'
+                  ? 'border-indigo-650 bg-indigo-50/60 text-indigo-950 ring-1 ring-indigo-650'
+                  : 'border-slate-200 bg-card hover:bg-slate-100/50 text-slate-700'
+                  }`}
               >
                 <span className="flex items-center gap-2.5">
-                  <span className={`h-4.5 w-4.5 rounded-full border flex items-center justify-center transition-all ${
-                    billingCycle === 'yearly' ? 'border-indigo-650 bg-indigo-650' : 'border-slate-300 dark:border-slate-700'
-                  }`}>
+                  <span className={`h-4.5 w-4.5 rounded-full border flex items-center justify-center transition-all ${billingCycle === 'yearly' ? 'border-indigo-650 bg-indigo-650' : 'border-slate-300'
+                    }`}>
                     {billingCycle === 'yearly' && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
                   </span>
                   Yearly Cycle (Discounted)
                 </span>
-                <span className="text-[9px] font-extrabold bg-emerald-500 text-white py-0.5 px-2 rounded-full uppercase tracking-wider shrink-0">
+                <span className="text-[9px] font-bold bg-emerald-500 text-white py-0.5 px-2 rounded-full capitalize tracking-wider shrink-0">
                   Save 20%
                 </span>
               </button>
@@ -341,9 +336,9 @@ export function ProductDetailClient({ product, relatedProducts }: { product: Pro
 
             {/* If monthly (and not explicitly a yearly variant), show duration input */}
             {billingCycle === 'monthly' && !isYearlyVariant && (
-              <div className="flex items-center justify-between pt-3 border-t border-slate-200/50 dark:border-slate-800/50">
-                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Billing Duration:</span>
-                <div className="flex items-center border border-slate-200 dark:border-slate-800 bg-card rounded-xl overflow-hidden h-9 shadow-inner">
+              <div className="flex items-center justify-between pt-3 border-t border-slate-200">
+                <span className="text-xs font-bold text-slate-700">Billing Duration:</span>
+                <div className="flex items-center border border-slate-200 bg-card rounded-xl overflow-hidden h-9 shadow-inner">
                   <button
                     type="button"
                     onClick={() => setDurationMonths(Math.max(1, durationMonths - 1))}
@@ -362,7 +357,7 @@ export function ProductDetailClient({ product, relatedProducts }: { product: Pro
                         setDurationMonths(Math.min(36, val));
                       }
                     }}
-                    className="w-12 text-center text-xs font-bold text-slate-800 dark:text-slate-200 font-mono focus:outline-none border-0 bg-transparent"
+                    className="w-12 text-center text-xs font-bold text-slate-800 font-mono focus:outline-none border-0 bg-transparent"
                   />
                   <span className="text-[10px] text-slate-400 font-semibold pr-2.5 select-none font-mono">Mo.</span>
                   <button
@@ -377,20 +372,20 @@ export function ProductDetailClient({ product, relatedProducts }: { product: Pro
             )}
 
             {/* Dates preview banner */}
-            <div className="p-3.5 bg-indigo-500/5 dark:bg-indigo-500/10 border border-indigo-100/70 dark:border-indigo-900/40 rounded-xl space-y-1.5 text-left">
-              <span className="text-[9px] font-extrabold text-indigo-600 dark:text-indigo-400 tracking-wider uppercase block">Subscription License Period</span>
-              <div className="flex justify-between items-center text-xs font-bold text-slate-700 dark:text-slate-300">
+            <div className="p-3.5 bg-indigo-500/5 border border-indigo-100/70 rounded-xl space-y-1.5 text-left">
+              <span className="text-[9px] font-bold text-indigo-600 tracking-wider Capitalize block">Subscription License Period</span>
+              <div className="flex justify-between items-center text-xs font-bold text-slate-700">
                 <div className="flex flex-col">
                   <span className="text-[9px] text-slate-450 font-normal">Start Date</span>
-                  <span className="font-semibold text-slate-800 dark:text-slate-200">{getDates().startStr}</span>
+                  <span className="font-semibold text-slate-800">{getDates().startStr}</span>
                 </div>
-                <div className="h-4 w-px bg-indigo-150 dark:bg-indigo-900" />
+                <div className="h-4 w-px bg-indigo-150" />
                 <div className="flex flex-col text-right">
                   <span className="text-[9px] text-slate-455 font-normal">Renewal / Expiry Date</span>
-                  <span className="font-semibold text-slate-800 dark:text-slate-200">{getDates().endStr}</span>
+                  <span className="font-semibold text-slate-800">{getDates().endStr}</span>
                 </div>
               </div>
-              <p className="text-[10px] text-indigo-600/80 dark:text-indigo-400/80 font-medium pt-1">
+              <p className="text-[10px] text-indigo-600/80 font-medium pt-1">
                 {isYearlyVariant || billingCycle === 'yearly'
                   ? '🛡️ Full 1-year updates & license authorization (includes 2 months free discount).'
                   : `🛡️ Full ${durationMonths} month${durationMonths > 1 ? 's' : ''} updates & support renewals.`}
@@ -412,7 +407,7 @@ export function ProductDetailClient({ product, relatedProducts }: { product: Pro
             <div className="flex items-center justify-between border-b border-border/40 pb-2">
               <h3 className="text-sm font-semibold text-foreground">Included Features</h3>
               {selectedVariant && (
-                <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 px-2.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-150 dark:border-indigo-900/50">
+                <span className="text-[10px] font-bold text-indigo-600 px-2.5 py-0.5 rounded-full bg-indigo-50 border border-indigo-150">
                   {selectedVariant.name}
                 </span>
               )}
@@ -429,13 +424,13 @@ export function ProductDetailClient({ product, relatedProducts }: { product: Pro
                 {/* Domain Card */}
                 <motion.div
                   whileHover={{ y: -2 }}
-                  className="relative overflow-hidden p-3 rounded-xl border border-indigo-100/70 dark:border-indigo-950/40 bg-gradient-to-br from-indigo-500/[0.02] to-purple-500/[0.02] dark:from-indigo-950/10 dark:to-purple-950/10 shadow-[0_2px_8px_rgba(99,102,241,0.02)]"
+                  className="relative overflow-hidden p-3 rounded-xl border border-indigo-100/70 bg-gradient-to-br from-indigo-500/[0.02] to-purple-500/[0.02] shadow-[0_2px_8px_rgba(99,102,241,0.02)]"
                 >
                   <div className="flex items-center gap-2 mb-1">
-                    <div className="p-1 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                    <div className="p-1 rounded-lg bg-indigo-500/10 text-indigo-600">
                       <Globe className="h-3.5 w-3.5" />
                     </div>
-                    <span className="text-[9px] font-bold text-indigo-600/85 dark:text-indigo-400/85 uppercase tracking-wider">Deployments</span>
+                    <span className="text-[9px] font-bold text-indigo-600/85 capitalize tracking-wider">Deployments</span>
                   </div>
                   <div className="text-sm font-bold text-foreground">
                     {selectedVariant.domain_count && selectedVariant.domain_count >= 100 ? 'Unlimited' : selectedVariant.domain_count || 1}
@@ -450,13 +445,13 @@ export function ProductDetailClient({ product, relatedProducts }: { product: Pro
                 {/* Layout Card */}
                 <motion.div
                   whileHover={{ y: -2 }}
-                  className="relative overflow-hidden p-3 rounded-xl border border-emerald-100/70 dark:border-emerald-950/40 bg-gradient-to-br from-emerald-500/[0.02] to-teal-500/[0.02] dark:from-emerald-950/10 dark:to-teal-950/10 shadow-[0_2px_8px_rgba(16,185,129,0.02)]"
+                  className="relative overflow-hidden p-3 rounded-xl border border-emerald-100/70 bg-gradient-to-br from-emerald-500/[0.02] to-teal-500/[0.02] shadow-[0_2px_8px_rgba(16,185,129,0.02)]"
                 >
                   <div className="flex items-center gap-2 mb-1">
-                    <div className="p-1 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                    <div className="p-1 rounded-lg bg-emerald-500/10 text-emerald-600">
                       <Layout className="h-3.5 w-3.5" />
                     </div>
-                    <span className="text-[9px] font-bold text-emerald-600/85 dark:text-emerald-400/85 uppercase tracking-wider">UI Templates</span>
+                    <span className="text-[9px] font-bold text-emerald-600/85 capitalize tracking-wider">UI Templates</span>
                   </div>
                   <div className="text-sm font-bold text-foreground">
                     {selectedVariant.layout_count || 1} Layout{Number(selectedVariant.layout_count) > 1 ? 's' : ''}
@@ -469,13 +464,13 @@ export function ProductDetailClient({ product, relatedProducts }: { product: Pro
                 {/* Support/Tier Card */}
                 <motion.div
                   whileHover={{ y: -2 }}
-                  className="relative overflow-hidden p-3 rounded-xl border border-amber-100/70 dark:border-amber-950/40 bg-gradient-to-br from-amber-500/[0.02] to-orange-500/[0.02] dark:from-amber-950/10 dark:to-orange-950/10 shadow-[0_2px_8px_rgba(245,158,11,0.02)]"
+                  className="relative overflow-hidden p-3 rounded-xl border border-amber-100/70 bg-gradient-to-br from-amber-500/[0.02] to-orange-500/[0.02] shadow-[0_2px_8px_rgba(245,158,11,0.02)]"
                 >
                   <div className="flex items-center gap-2 mb-1">
-                    <div className="p-1 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                    <div className="p-1 rounded-lg bg-amber-500/10 text-amber-600">
                       <Zap className="h-3.5 w-3.5" />
                     </div>
-                    <span className="text-[9px] font-bold text-amber-600/85 dark:text-amber-400/85 uppercase tracking-wider">Support</span>
+                    <span className="text-[9px] font-bold text-amber-600/85 capitalize tracking-wider">Support</span>
                   </div>
                   <div className="text-sm font-bold text-foreground">
                     {selectedVariant.domain_count && selectedVariant.domain_count > 1 ? 'Priority' : 'Standard'}

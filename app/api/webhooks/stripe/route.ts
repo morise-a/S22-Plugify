@@ -259,39 +259,73 @@ export async function POST(request: Request) {
           }
         }
         
-        const checkoutDomain = paymentIntent.metadata.domain || '';
-        const domainsList = checkoutDomain
-          ? checkoutDomain.split(',').map((d: string) => d.trim().toLowerCase()).filter(Boolean)
-          : [];
+        const isRenewal = (item as any).is_renewal || false;
+        const renewalLicenseKey = (item as any).renewal_license_key || null;
 
-        for (let i = 0; i < slotsCount; i++) {
-          const domainName = domainsList[i] || null;
-          
-          await supabaseAdmin.from('purchased_domains').insert({
-            user_id: order.user_id,
-            order_id: order.id,
-            product_id: item.product_id,
-            domain_name: domainName,
-            variant_name: variantName,
-          });
-        }
+        if (isRenewal && renewalLicenseKey) {
+          // RENEWAL PROCESS: Update existing license key expiry date based on plan duration
+          const { data: existingLicense } = await supabaseAdmin
+            .from('license_keys')
+            .select('*')
+            .eq('license_key', renewalLicenseKey)
+            .maybeSingle();
 
-        // Insert into license_keys table (with resolved variant name saved in plan_name)
-        const { error: licErr } = await supabaseAdmin
-          .from('license_keys')
-          .insert({
-            user_id: order.user_id,
-            order_id: order.id,
-            product_id: item.product_id,
-            product_name: item.product_name,
-            plan_name: variantName,
-            license_key: itemLicenseKey,
-            purchased_date: purchasedDate.toISOString(),
-            expiry_date: expiryDate.toISOString(),
-          });
-          
-        if (licErr) {
-          console.error('Failed to create product license key:', licErr);
+          if (existingLicense) {
+            const currentExpiry = new Date(existingLicense.expiry_date);
+            const baseDate = currentExpiry > new Date() ? currentExpiry : new Date();
+            const newExpiry = new Date(baseDate);
+            newExpiry.setMonth(baseDate.getMonth() + durationMonths);
+
+            const { error: updateLicErr } = await supabaseAdmin
+              .from('license_keys')
+              .update({
+                expiry_date: newExpiry.toISOString(),
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', existingLicense.id);
+
+            if (updateLicErr) {
+              console.error(`Failed to renew license key ${renewalLicenseKey}:`, updateLicErr);
+            }
+          } else {
+            console.error(`Renewal license key not found in db: ${renewalLicenseKey}`);
+          }
+        } else {
+          // NEW PURCHASE PROCESS: Provision domains and generate new license key
+          const checkoutDomain = paymentIntent.metadata.domain || '';
+          const domainsList = checkoutDomain
+            ? checkoutDomain.split(',').map((d: string) => d.trim().toLowerCase()).filter(Boolean)
+            : [];
+
+          for (let i = 0; i < slotsCount; i++) {
+            const domainName = domainsList[i] || null;
+            
+            await supabaseAdmin.from('purchased_domains').insert({
+              user_id: order.user_id,
+              order_id: order.id,
+              product_id: item.product_id,
+              domain_name: domainName,
+              variant_name: variantName,
+            });
+          }
+
+          // Insert into license_keys table (with resolved variant name saved in plan_name)
+          const { error: licErr } = await supabaseAdmin
+            .from('license_keys')
+            .insert({
+              user_id: order.user_id,
+              order_id: order.id,
+              product_id: item.product_id,
+              product_name: item.product_name,
+              plan_name: variantName,
+              license_key: itemLicenseKey,
+              purchased_date: purchasedDate.toISOString(),
+              expiry_date: expiryDate.toISOString(),
+            });
+            
+          if (licErr) {
+            console.error('Failed to create product license key:', licErr);
+          }
         }
       }
     }
@@ -359,15 +393,17 @@ export async function POST(request: Request) {
           }
         }
 
-        // Send email, passing the admin service role client for settings retrieval
-        await sendEmail(
+        // Send email in background, passing the admin service role client for settings retrieval
+        sendEmail(
           {
             to: order.billing_email,
             subject,
             html: emailBody,
           },
           supabaseAdmin
-        );
+        ).catch((emailErr) => {
+          console.error('Email confirmation dispatch failure in webhook background:', emailErr);
+        });
       } catch (emailErr) {
         console.error('Email confirmation dispatch failure:', emailErr);
       }

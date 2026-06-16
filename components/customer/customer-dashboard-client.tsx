@@ -12,6 +12,9 @@ import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '../ui
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs';
 import { Badge } from '../ui/badge';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '../ui/table';
+import { useRouter } from 'next/navigation';
+import { useCartStore } from '../../lib/store/use-cart-store';
+import { getProductAction } from '../../app/actions/products';
 import { updateProfileAction, changePasswordAction } from '../../app/actions/settings';
 import { Modal } from '../ui/modal';
 import { updatePurchasedDomainAction } from '../../app/actions/orders';
@@ -45,9 +48,18 @@ interface CustomerDashboardProps {
 }
 
 export function CustomerDashboardClient({ profile, subscriptions, orders, notifications, purchasedDomains, licenseKeys }: CustomerDashboardProps) {
+  const router = useRouter();
   const { showToast } = useToast();
+  const addToCart = useCartStore((state) => state.addToCart);
+
   const [profileLoading, setProfileLoading] = React.useState(false);
   const [passwordLoading, setPasswordLoading] = React.useState(false);
+  const [extendingProductId, setExtendingProductId] = React.useState<string | null>(null);
+  const [clientDate, setClientDate] = React.useState<Date | null>(null);
+
+  React.useEffect(() => {
+    setClientDate(new Date());
+  }, []);
 
   // Domains slot & Invoice print state
   const [domainInputs, setDomainInputs] = React.useState<Record<string, string>>({});
@@ -111,6 +123,82 @@ export function CustomerDashboardClient({ profile, subscriptions, orders, notifi
       confirmPassword: '',
     },
   });
+
+  const handleExtendPlan = async (item: any, lic: any, sub: any) => {
+    setExtendingProductId(item.product_id);
+    try {
+      const product = await getProductAction(item.product_id);
+      if (!product) {
+        showToast('Error', 'error', 'Failed to retrieve product details.');
+        return;
+      }
+
+      // Determine if it is yearly based on name or existing subscription
+      const nameLower = (item.product_name || '').toLowerCase();
+      const isYearly = nameLower.includes('yearly');
+
+      // Find matching variant by name
+      const variantName = lic?.plan_name || 'Standard';
+      const variant = product.product_variants?.find((v: any) =>
+        v.name.toLowerCase() === variantName.toLowerCase() &&
+        (isYearly ? v.billing_cycle === 'yearly' : v.billing_cycle === 'monthly')
+      ) || product.product_variants?.find((v: any) =>
+        v.name.toLowerCase() === variantName.toLowerCase()
+      ) || product.product_variants?.[0] || null;
+
+      // Expiry/renewal dates
+      const start = new Date(sub?.current_period_end || lic?.expiry_date || new Date());
+      const end = new Date(start);
+      const months = isYearly ? 12 : 1;
+      end.setMonth(start.getMonth() + months);
+
+      const format = (dVal: Date) => {
+        return dVal.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      };
+
+      const price = variant ? Number(variant.price) : Number(product.price);
+      const displayPrice = isYearly && variant?.billing_cycle !== 'yearly' ? price * 10 : price;
+
+      const mainImage = product.product_images?.find((img: any) => !img.is_screenshot)?.image_url
+        || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80';
+
+      const cycleLabel = isYearly ? 'Yearly' : 'Monthly';
+      const itemVariantName = variant
+        ? `${variant.name} (Renewal - ${cycleLabel})`
+        : `Standard (Renewal - ${cycleLabel})`;
+
+      // Find associated domain for renewal prefill
+      const assocDomain = purchasedDomains?.find((d: any) => d.order_id === lic?.order_id && d.product_id === product.id)
+        || purchasedDomains?.find((d: any) => d.product_id === product.id);
+      const domainName = assocDomain?.domain_name || 'renewal.com';
+
+      addToCart({
+        id: product.id,
+        name: product.name,
+        price: displayPrice,
+        image_url: mainImage,
+        variantId: variant?.id,
+        variantName: itemVariantName,
+        domain_count: variant?.domain_count,
+        layout_count: variant?.layout_count,
+        billingCycle: isYearly ? 'yearly' : 'monthly',
+        durationMonths: months,
+        startDate: format(start),
+        endDate: format(end),
+        isRenewal: true,
+        renewalLicenseKey: lic?.license_key,
+        domain: domainName,
+      } as any, 1);
+
+      showToast('Added to Cart', 'success', `"${product.name}" added to cart for renewal.`);
+      router.push('/cart');
+    } catch (err) {
+      console.error(err);
+      showToast('Error', 'error', 'An unexpected error occurred while adding to cart.');
+    } finally {
+      setExtendingProductId(null);
+    }
+  };
 
   const onProfileUpdate = async (data: ProfileUpdateInput) => {
     setProfileLoading(true);
@@ -217,21 +305,20 @@ export function CustomerDashboardClient({ profile, subscriptions, orders, notifi
               </p>
             </div>
 
-            {/* Quick Metrics grid */}
-            <div className="grid grid-cols-3 gap-2 w-full md:w-auto shrink-0 bg-white/10 p-2 rounded-2xl backdrop-blur-sm">
-              <div className="text-center px-4 py-2">
-                <span className="text-lg font-black block">{subscriptions.length}</span>
-                <span className="text-[9px] font-bold text-indigo-150 uppercase tracking-wider">Subs</span>
+            <div className="flex items-center justify-between md:justify-start gap-2 w-full md:w-auto shrink-0 bg-white/10 p-2 rounded-2xl backdrop-blur-sm">
+              <div className="text-center px-4 py-2 flex-1 md:flex-none">
+                <span className="text-lg font-bold block">{subscriptions.length}</span>
+                <span className="text-[9px] font-bold text-indigo-150 capitalize tracking-wider">Subs</span>
               </div>
-              <div className="w-px bg-white/20 my-2" />
-              <div className="text-center px-4 py-2">
-                <span className="text-lg font-black block">{purchasedDomains.length}</span>
-                <span className="text-[9px] font-bold text-indigo-150 uppercase tracking-wider">Licenses</span>
+              <div className="w-px bg-white/20 self-stretch my-2" />
+              <div className="text-center px-4 py-2 flex-1 md:flex-none">
+                <span className="text-lg font-bold block">{purchasedDomains.length}</span>
+                <span className="text-[9px] font-bold text-indigo-150 capitalize tracking-wider">Licenses</span>
               </div>
-              <div className="w-px bg-white/20 my-2" />
-              <div className="text-center px-4 py-2">
-                <span className="text-lg font-black block">{purchasedItems.length}</span>
-                <span className="text-[9px] font-bold text-indigo-150 uppercase tracking-wider">Products</span>
+              <div className="w-px bg-white/20 self-stretch my-2" />
+              <div className="text-center px-4 py-2 flex-1 md:flex-none">
+                <span className="text-lg font-bold block">{purchasedItems.length}</span>
+                <span className="text-[9px] font-bold text-indigo-150 capitalize tracking-wider">Products</span>
               </div>
             </div>
           </div>
@@ -261,31 +348,34 @@ export function CustomerDashboardClient({ profile, subscriptions, orders, notifi
                         || licenseKeys.find((l) => l.product_id === item.product_id);
                       const licenseKey = lic?.license_key || 'N/A';
 
-                      const daysRemaining = sub
-                        ? Math.max(0, Math.ceil((new Date(sub.current_period_end).getTime() - Date.now()) / (1000 * 3600 * 24)))
+                      const nowTime = clientDate ? clientDate.getTime() : Date.now();
+                      const daysRemaining = lic
+                        ? Math.max(0, Math.ceil((new Date(lic.expiry_date).getTime() - nowTime) / (1000 * 3600 * 24)))
                         : 0;
-                      const isBelowMonth = sub ? daysRemaining <= 30 : false;
+                      const isBelowMonth = lic ? daysRemaining <= 30 : false;
 
-                      const totalDays = sub
-                        ? Math.max(1, Math.ceil((new Date(sub.current_period_end).getTime() - new Date(sub.current_period_start).getTime()) / (1000 * 3600 * 24)))
+                      const totalDays = lic
+                        ? Math.max(1, Math.ceil((new Date(lic.expiry_date).getTime() - new Date(lic.purchased_date).getTime()) / (1000 * 3600 * 24)))
                         : 1;
-                      const progressPercent = sub
+                      const progressPercent = lic
                         ? Math.min(100, Math.max(0, ((totalDays - daysRemaining) / totalDays) * 100))
                         : 100;
                       const remainingPercent = 100 - progressPercent;
 
+                      const isLicActive = lic && new Date(lic.expiry_date) > (clientDate || new Date());
+
                       return (
                         <div
                           key={idx}
-                          className="group border border-slate-150 dark:border-slate-850 bg-slate-50/30 hover:bg-white dark:hover:bg-slate-900 rounded-3xl p-5.5 flex flex-col justify-between gap-5 transition-all duration-305 hover:shadow-[0_12px_24px_rgba(99,102,241,0.04)] hover:-translate-y-0.5"
+                          className="group border border-slate-150 bg-slate-50/30 hover:bg-white rounded-3xl p-5.5 flex flex-col justify-between gap-5 transition-all duration-305 hover:shadow-[0_12px_24px_rgba(99,102,241,0.04)] hover:-translate-y-0.5"
                         >
                           {/* Card Header: Product Name + Activation Status */}
                           <div className="flex justify-between items-start gap-4">
                             <div className="space-y-1">
-                              <h4 className="text-sm font-extrabold text-slate-800 dark:text-white leading-tight">{item.product_name.split(' (')[0]}</h4>
-                              <p className="text-[9px] text-slate-400 font-bold capitalize tracking-wider font-mono">License Key: <span className="text-indigo-650 dark:text-indigo-400 select-all font-mono font-extrabold">{licenseKey}</span></p>
+                              <h4 className="text-sm font-bold text-slate-800 leading-tight">{item.product_name.split(' (')[0]}</h4>
+                              <p className="text-[9px] text-slate-400 font-bold capitalize tracking-wider font-mono">License Key: <span className="text-indigo-650 select-all font-mono font-bold">{licenseKey}</span></p>
                             </div>
-                            {sub && sub.status === 'active' ? (
+                            {isLicActive ? (
                               <Badge variant="success" className="rounded-md font-bold px-2 py-0.5 text-[9px] capitalize tracking-wider">Active</Badge>
                             ) : (
                               <Badge variant="destructive" className="rounded-md font-bold px-2 py-0.5 text-[9px] capitalize tracking-wider">Expired</Badge>
@@ -293,15 +383,15 @@ export function CustomerDashboardClient({ profile, subscriptions, orders, notifi
                           </div>
 
                           {/* Expiry / Timeline Indicator */}
-                          {sub ? (
-                            <div className="space-y-2.5 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-850 p-3.5 rounded-2xl">
+                          {lic ? (
+                            <div className="space-y-2.5 bg-white border border-slate-100 p-3.5 rounded-2xl">
                               <div className="flex justify-between items-center text-[10px] font-bold text-slate-550 font-mono">
-                                <span>Start: {new Date(sub.current_period_start).toLocaleDateString()}</span>
-                                <span>Expiry: {new Date(sub.current_period_end).toLocaleDateString()}</span>
+                                <span suppressHydrationWarning>Start: {new Date(lic.purchased_date).toLocaleDateString('en-US')}</span>
+                                <span suppressHydrationWarning>Expiry: {new Date(lic.expiry_date).toLocaleDateString('en-US')}</span>
                               </div>
 
                               {/* Progress bar timeline */}
-                              <div className="w-full bg-slate-100 dark:bg-slate-900 rounded-full h-1.5 overflow-hidden">
+                              <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
                                 <div
                                   className={`h-full rounded-full transition-all duration-500 ${daysRemaining <= 7 ? 'bg-red-500 animate-pulse' : daysRemaining <= 30 ? 'bg-amber-500' : 'bg-emerald-500'
                                     }`}
@@ -314,20 +404,20 @@ export function CustomerDashboardClient({ profile, subscriptions, orders, notifi
                                 <span className="text-[9px] font-semibold text-slate-400">Subscription Timeline</span>
                                 {isBelowMonth ? (
                                   daysRemaining === 0 ? (
-                                    <span className="text-[9px] font-extrabold text-red-500 animate-pulse flex items-center gap-1">
+                                    <span className="text-[9px] font-bold text-red-500 animate-pulse flex items-center gap-1">
                                       ⚠️ Expired Today
                                     </span>
                                   ) : daysRemaining <= 7 ? (
-                                    <span className="text-[9px] font-extrabold text-red-655 dark:text-red-400 animate-pulse flex items-center gap-1">
+                                    <span className="text-[9px] font-bold text-red-655 animate-pulse flex items-center gap-1">
                                       ⚠️ Only {daysRemaining} days left!
                                     </span>
                                   ) : (
-                                    <span className="text-[9px] font-extrabold text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                                    <span className="text-[9px] font-bold text-amber-600 flex items-center gap-1">
                                       ⏳ {daysRemaining} days left
                                     </span>
                                   )
                                 ) : (
-                                  <span className="text-[9px] font-bold text-indigo-650 dark:text-indigo-400">
+                                  <span className="text-[9px] font-bold text-indigo-650 ">
                                     Expires in {Math.ceil(daysRemaining / 30)} mos
                                   </span>
                                 )}
@@ -335,7 +425,7 @@ export function CustomerDashboardClient({ profile, subscriptions, orders, notifi
                             </div>
                           ) : (
                             <div className="p-3 bg-red-50/50 border border-red-100 text-red-650 rounded-2xl text-[10px] font-bold text-center">
-                              No active updates subscription found. Please renew to access downloads & updates.
+                              No active license key found. Please renew to access downloads & updates.
                             </div>
                           )}
 
@@ -348,7 +438,7 @@ export function CustomerDashboardClient({ profile, subscriptions, orders, notifi
                                 target="_blank"
                                 download={`${item.product_name.replace(/\s+/g, '_')}_plugin.zip`}
                                 variant="outline"
-                                className="w-full inline-flex items-center justify-center gap-1.5 h-9 text-[11px] font-bold bg-white hover:bg-slate-50 border-slate-200 text-slate-800 dark:bg-slate-900 dark:text-slate-100 rounded-xl shadow-sm cursor-pointer"
+                                className="w-full inline-flex items-center justify-center gap-1.5 h-9 text-[11px] font-bold bg-white hover:bg-slate-50 border-slate-200 text-slate-800 rounded-xl shadow-sm cursor-pointer"
                               >
                                 <Download className="h-3.5 w-3.5" />
                                 Download Plugin
@@ -361,7 +451,9 @@ export function CustomerDashboardClient({ profile, subscriptions, orders, notifi
 
                             {/* Extend Subscription */}
                             <Button
-                              href={`/products/${item.product_id}`}
+                              type="button"
+                              onClick={() => handleExtendPlan(item, lic, sub)}
+                              isLoading={extendingProductId === item.product_id}
                               className="w-full inline-flex items-center justify-center gap-1.5 h-9 text-[11px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-md shadow-indigo-600/10 transition-all hover:scale-102 active:scale-98 cursor-pointer"
                             >
                               <Zap className="h-3.5 w-3.5" />
@@ -391,9 +483,9 @@ export function CustomerDashboardClient({ profile, subscriptions, orders, notifi
                     return (
                       <div key={slot.id} className="py-4 first:pt-0 last:pb-0 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                         <div className="max-w-sm text-left">
-                          <h4 className="text-xs font-extrabold text-slate-800">{slot.products?.name || 'Digital Product'}</h4>
+                          <h4 className="text-xs font-bold text-slate-800">{slot.products?.name || 'Digital Product'}</h4>
                           <p className="text-[10px] text-slate-455 font-bold mt-1">
-                            Plan Variant: <span className="text-indigo-650 dark:text-indigo-400 font-extrabold">{slot.variant_name}</span>
+                            Plan Variant: <span className="text-indigo-650 font-bold">{slot.variant_name}</span>
                           </p>
                         </div>
                         <div className="w-full sm:w-auto flex items-center justify-end gap-3 shrink-0">
@@ -401,7 +493,7 @@ export function CustomerDashboardClient({ profile, subscriptions, orders, notifi
                             <div className="flex gap-2 w-full sm:w-64">
                               <Input
                                 placeholder="my-domain.com"
-                                className="h-8.5 py-1 px-2.5 text-xs bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 focus:ring-indigo-500 rounded-lg"
+                                className="h-8.5 py-1 px-2.5 text-xs bg-slate-50 border-slate-200 focus:ring-indigo-500 rounded-lg"
                                 value={domainInputs[slot.id] !== undefined ? domainInputs[slot.id] : (slot.domain_name || '')}
                                 onChange={(e) => setDomainInputs({ ...domainInputs, [slot.id]: e.target.value })}
                               />
@@ -426,10 +518,10 @@ export function CustomerDashboardClient({ profile, subscriptions, orders, notifi
                             </div>
                           ) : (
                             <div className="flex items-center gap-2">
-                              <Badge variant="success" className="font-mono text-[10px] py-1 px-2.5 rounded-lg font-bold bg-indigo-50 border-indigo-150 text-indigo-700 dark:bg-indigo-950/20 dark:text-indigo-300">
+                              <Badge variant="success" className="font-mono text-[10px] py-1 px-2.5 rounded-lg font-bold bg-indigo-50 border-indigo-150 text-indigo-700">
                                 {slot.domain_name}
                               </Badge>
-                              <Button
+                              {/* <Button
                                 variant="outline"
                                 size="sm"
                                 className="h-8 px-2.5 text-[10px] inline-flex items-center gap-1 cursor-pointer font-bold"
@@ -439,7 +531,7 @@ export function CustomerDashboardClient({ profile, subscriptions, orders, notifi
                                 }}
                               >
                                 Edit Domain
-                              </Button>
+                              </Button> */}
                             </div>
                           )}
                         </div>
@@ -500,7 +592,7 @@ export function CustomerDashboardClient({ profile, subscriptions, orders, notifi
                   {orders.map((o) => (
                     <TableRow key={o.id}>
                       <TableCell className="font-mono text-xs">{o.order_number}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{new Date(o.created_at).toLocaleDateString()}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground" suppressHydrationWarning>{new Date(o.created_at).toLocaleDateString('en-US')}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">{o.billing_email}</TableCell>
                       <TableCell className="font-bold text-foreground">${Number(o.total).toFixed(2)}</TableCell>
                       <TableCell>
@@ -633,7 +725,7 @@ export function CustomerDashboardClient({ profile, subscriptions, orders, notifi
             </div>
           }
         >
-          <div id="print-invoice-area" className="p-6 bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-100 rounded-xl space-y-6">
+          <div id="print-invoice-area" className="p-6 bg-white rounded-xl space-y-6">
             <style>{`
               @media print {
                 body * {
@@ -665,9 +757,9 @@ export function CustomerDashboardClient({ profile, subscriptions, orders, notifi
                 <p className="text-[10px] text-slate-400 mt-0.5">https://solution22.store</p>
               </div>
               <div className="text-right">
-                <h2 className="text-lg font-bold text-slate-700 dark:text-slate-200">INVOICE</h2>
+                <h2 className="text-lg font-bold text-slate-700">INVOICE</h2>
                 <p className="text-xs font-mono text-slate-500 mt-1">#{selectedInvoiceOrder.order_number}</p>
-                <p className="text-[10px] text-slate-400 mt-0.5">Date: {new Date(selectedInvoiceOrder.created_at).toLocaleDateString()}</p>
+                <p className="text-[10px] text-slate-400 mt-0.5" suppressHydrationWarning>Date: {new Date(selectedInvoiceOrder.created_at).toLocaleDateString('en-US')}</p>
               </div>
             </div>
 
@@ -675,14 +767,14 @@ export function CustomerDashboardClient({ profile, subscriptions, orders, notifi
             <div className="grid grid-cols-2 gap-8 text-xs text-left">
               <div>
                 <h3 className="font-bold text-slate-400 capitalize tracking-widest text-[9px] mb-2">Company Details</h3>
-                <p className="font-bold text-slate-700 dark:text-slate-300">Solution22 Pty Ltd</p>
+                <p className="font-bold text-slate-700">Solution22 Pty Ltd</p>
                 <p className="text-slate-500 mt-0.5">123 Tech Hub Boulevard</p>
                 <p className="text-slate-500">Sydney, NSW 2000</p>
                 <p className="text-slate-500">Australia</p>
               </div>
               <div>
                 <h3 className="font-bold text-slate-400 capitalize tracking-widest text-[9px] mb-2">Billed To</h3>
-                <p className="font-bold text-slate-700 dark:text-slate-300">
+                <p className="font-bold text-slate-700">
                   {selectedInvoiceOrder.billing_first_name} {selectedInvoiceOrder.billing_last_name}
                 </p>
                 <p className="text-slate-500 mt-0.5">{selectedInvoiceOrder.billing_email}</p>
@@ -699,23 +791,23 @@ export function CustomerDashboardClient({ profile, subscriptions, orders, notifi
             </div>
 
             {/* Invoice Table */}
-            <div className="border border-slate-100 dark:border-slate-800 rounded-xl overflow-hidden text-left">
+            <div className="border border-slate-100 rounded-xl overflow-hidden text-left">
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-slate-50/70 border-b border-slate-100 dark:border-slate-800">
+                  <TableRow className="bg-slate-50/70 border-b border-slate-100">
                     <TableHead className="font-bold text-slate-500 text-xs py-3 pl-4">Description</TableHead>
                     <TableHead className="font-bold text-slate-550 text-xs py-3 text-center">Qty</TableHead>
                     <TableHead className="font-bold text-slate-550 text-xs py-3 text-right pr-4">Price</TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody className="divide-y divide-slate-100 dark:divide-slate-800/40">
+                <TableBody className="divide-y divide-slate-100">
                   {selectedInvoiceOrder.order_items?.map((item: any, idx: number) => (
                     <TableRow key={idx}>
-                      <TableCell className="py-3 pl-4 text-xs font-semibold text-slate-800 dark:text-slate-200">
+                      <TableCell className="py-3 pl-4 text-xs font-semibold text-slate-800">
                         {item.product_name}
                       </TableCell>
                       <TableCell className="py-3 text-xs text-slate-500 text-center font-mono">{item.quantity}</TableCell>
-                      <TableCell className="py-3 text-xs font-bold text-slate-700 dark:text-slate-300 text-right pr-4">
+                      <TableCell className="py-3 text-xs font-bold text-slate-700 text-right pr-4">
                         ${Number(item.price).toFixed(2)}
                       </TableCell>
                     </TableRow>
@@ -745,22 +837,22 @@ export function CustomerDashboardClient({ profile, subscriptions, orders, notifi
                   <span>Processing Fee:</span>
                   <span className="font-mono">${Number(selectedInvoiceOrder.processing_fee).toFixed(2)}</span>
                 </div>
-                <div className="border-t border-slate-200 dark:border-slate-800 pt-2.5 flex justify-between font-bold text-sm text-slate-800 dark:text-slate-100">
+                <div className="border-t border-slate-200 pt-2.5 flex justify-between font-bold text-sm text-slate-800">
                   <span>Total Paid:</span>
-                  <span className="font-mono text-indigo-650 dark:text-indigo-400">${Number(selectedInvoiceOrder.total).toFixed(2)}</span>
+                  <span className="font-mono text-indigo-650">${Number(selectedInvoiceOrder.total).toFixed(2)}</span>
                 </div>
               </div>
             </div>
 
             {/* Status Badges */}
-            <div className="flex justify-between items-center bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800 p-4 rounded-xl text-xs">
+            <div className="flex justify-between items-center bg-slate-50 border border-slate-100 p-4 rounded-xl text-xs">
               <div className="text-left">
                 <span className="text-slate-400 font-bold capitalize tracking-widest text-[8px] block">Payment status</span>
-                <span className="font-bold text-slate-700 dark:text-slate-300 capitalize mt-0.5 inline-block">{selectedInvoiceOrder.status}</span>
+                <span className="font-bold text-slate-700 capitalize mt-0.5 inline-block">{selectedInvoiceOrder.status}</span>
               </div>
               <div className="text-left">
                 <span className="text-slate-400 font-bold capitalize tracking-widest text-[8px] block">Payment Gateway</span>
-                <span className="font-semibold text-slate-700 dark:text-slate-300 mt-0.5 inline-block">Stripe PCI Secured</span>
+                <span className="font-semibold text-slate-700 mt-0.5 inline-block">Stripe PCI Secured</span>
               </div>
             </div>
           </div>

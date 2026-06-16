@@ -10,12 +10,37 @@ import { useCartStore } from '../../lib/store/use-cart-store';
 import { useToast } from '../../components/ui/toast';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
+import { Select } from '../../components/ui/select';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/card';
 import { createPaymentIntentAction, getPublicStripePublishableKeyAction } from '../actions/orders';
 import { getCurrentUser } from '../actions/auth';
 import { getStripeClientInstance } from '../../lib/stripe/client';
 import { StripeElementForm } from '../../components/payment/stripe-element-form';
 import { z } from 'zod';
+
+const GEOGRAPHY_DATA: Record<string, Record<string, string[]>> = {
+  'Australia': {
+    'New South Wales': ['Sydney', 'Newcastle', 'Wollongong', 'Central Coast', 'Albury', 'Maitland', 'Wagga Wagga'],
+    'Victoria': ['Melbourne', 'Geelong', 'Ballarat', 'Bendigo', 'Shepparton', 'Mildura', 'Warrnambool'],
+    'Queensland': ['Brisbane', 'Gold Coast', 'Sunshine Coast', 'Townsville', 'Cairns', 'Toowoomba', 'Mackay', 'Rockhampton'],
+    'Western Australia': ['Perth', 'Rockingham', 'Mandurah', 'Bunbury', 'Kalgoorlie', 'Geraldton', 'Albany'],
+    'South Australia': ['Adelaide', 'Mount Gambier', 'Whyalla', 'Murray Bridge', 'Port Augusta', 'Port Pirie'],
+    'Tasmania': ['Hobart', 'Launceston', 'Devonport', 'Burnie', 'Kingston'],
+    'Australian Capital Territory': ['Canberra'],
+    'Northern Territory': ['Darwin', 'Alice Springs', 'Palmerston', 'Katherine']
+  },
+  'United States': {
+    'California': ['Los Angeles', 'San Francisco', 'San Diego', 'San Jose', 'Sacramento'],
+    'New York': ['New York City', 'Buffalo', 'Rochester', 'Syracuse', 'Albany'],
+    'Texas': ['Houston', 'Austin', 'Dallas', 'San Antonio', 'Fort Worth'],
+    'Florida': ['Miami', 'Orlando', 'Tampa', 'Jacksonville', 'Tallahassee']
+  },
+  'New Zealand': {
+    'Auckland': ['Auckland', 'Manukau', 'North Shore'],
+    'Wellington': ['Wellington', 'Lower Hutt', 'Porirua'],
+    'Canterbury': ['Christchurch', 'Timaru', 'Ashburton']
+  }
+};
 
 const isValidDomainOrLocalhost = (val: string) => {
   const clean = val.replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0].split(':')[0].trim().toLowerCase();
@@ -37,6 +62,9 @@ const billingSchema = z.object({
     .toLowerCase()
     .refine((val) => {
       const items = useCartStore.getState().items;
+      const isOnlyRenewals = items.every((item) => item.isRenewal);
+      if (isOnlyRenewals) return true;
+
       const isMultiDomain = items.some((item) => item.domain_count && item.domain_count > 1);
       if (!isMultiDomain) {
         return !val.includes(',');
@@ -47,6 +75,8 @@ const billingSchema = z.object({
     })
     .refine((val) => {
       const items = useCartStore.getState().items;
+      const isOnlyRenewals = items.every((item) => item.isRenewal);
+      if (isOnlyRenewals) return true;
       const isMultiDomain = items.some((item) => item.domain_count && item.domain_count > 1);
 
       if (!isMultiDomain) {
@@ -63,7 +93,9 @@ const billingSchema = z.object({
   addressLine2: z.string().max(100).optional(),
   city: z.string().min(1, 'City is required').max(50),
   state: z.string().min(1, 'State is required').max(50),
-  postalCode: z.string().min(3, 'Postal code is required').max(15),
+  postalCode: z.string()
+    .min(1, 'Postal code is required')
+    .regex(/^\d{4,6}$/, 'Postal code must be 4 to 6 digits and contain numbers only'),
   country: z.string().min(1, 'Country is required').max(50),
 });
 
@@ -73,6 +105,7 @@ export default function CheckoutPage() {
   const router = useRouter();
   const { showToast } = useToast();
   const { items, couponCode, getTotals } = useCartStore();
+  const isOnlyRenewals = items.length > 0 && items.every((item) => item.isRenewal);
 
   const [stripePromise, setStripePromise] = React.useState<any>(null);
   const [clientSecret, setClientSecret] = React.useState<string>('');
@@ -85,6 +118,7 @@ export default function CheckoutPage() {
     register,
     handleSubmit,
     setValue,
+    watch,
     formState: { errors },
   } = useForm<BillingFormData>({
     resolver: zodResolver(billingSchema),
@@ -96,12 +130,66 @@ export default function CheckoutPage() {
       domain: '',
       addressLine1: '',
       addressLine2: '',
-      city: '',
-      state: '',
+      city: 'Sydney',
+      state: 'New South Wales',
       postalCode: '',
-      country: 'United States',
+      country: 'Australia',
     },
   });
+
+  const countryValue = watch('country');
+  const stateValue = watch('state');
+  const cityValue = watch('city');
+
+  const countryOptions = React.useMemo(() => {
+    return Object.keys(GEOGRAPHY_DATA).map(c => ({ label: c, value: c }));
+  }, []);
+
+  const stateOptions = React.useMemo(() => {
+    const statesMap = countryValue ? GEOGRAPHY_DATA[countryValue] : null;
+    if (!statesMap) return [];
+    return Object.keys(statesMap).map(s => ({ label: s, value: s }));
+  }, [countryValue]);
+
+  const cityOptions = React.useMemo(() => {
+    const statesMap = countryValue ? GEOGRAPHY_DATA[countryValue] : null;
+    const citiesList = statesMap && stateValue ? statesMap[stateValue] : null;
+    if (!citiesList) return [];
+    return citiesList.map(c => ({ label: c, value: c }));
+  }, [countryValue, stateValue]);
+
+  // Reset state and city if country changes
+  React.useEffect(() => {
+    if (!countryValue) return;
+    const statesMap = GEOGRAPHY_DATA[countryValue];
+    if (statesMap) {
+      const states = Object.keys(statesMap);
+      if (states.length > 0 && !states.includes(stateValue)) {
+        setValue('state', states[0], { shouldValidate: true });
+      }
+    } else {
+      setValue('state', '', { shouldValidate: true });
+    }
+  }, [countryValue, setValue, stateValue]);
+
+  // Reset city if state changes
+  React.useEffect(() => {
+    if (!countryValue || !stateValue) return;
+    const statesMap = GEOGRAPHY_DATA[countryValue];
+    const citiesList = statesMap ? statesMap[stateValue] : null;
+    if (citiesList) {
+      if (citiesList.length > 0 && !citiesList.includes(cityValue)) {
+        setValue('city', citiesList[0], { shouldValidate: true });
+      }
+    } else {
+      setValue('city', '', { shouldValidate: true });
+    }
+  }, [stateValue, countryValue, setValue, cityValue]);
+
+  const handlePostalCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(/\D/g, '');
+    setValue('postalCode', raw.slice(0, 6), { shouldValidate: true });
+  };
 
   // Load user data for prefill and fetch Stripe Publishable Key
   React.useEffect(() => {
@@ -113,6 +201,13 @@ export default function CheckoutPage() {
         setValue('lastName', user.last_name || '');
         setValue('email', user.email || '');
         setValue('phone', user.phone_number || '');
+      }
+
+      // If it is a renewal, prefill domain with the cart item's domain to bypass validation
+      const isOnlyRenewals = items.every((item) => item.isRenewal);
+      if (isOnlyRenewals) {
+        const renewalDomain = (items.find((item) => item.isRenewal) as any)?.domain || 'renewal.com';
+        setValue('domain', renewalDomain);
       }
 
       // Fetch dynamic Stripe publishable key
@@ -130,7 +225,7 @@ export default function CheckoutPage() {
     }
 
     loadInitialData();
-  }, [setValue, showToast]);
+  }, [setValue, showToast, items]);
 
   const handlePhoneFormat = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value.replace(/\D/g, '');
@@ -155,12 +250,19 @@ export default function CheckoutPage() {
 
     setIsSubmittingBilling(true);
 
+    if (isOnlyRenewals) {
+      const renewalDomain = (items.find((item) => item.isRenewal) as any)?.domain || 'renewal.com';
+      data.domain = renewalDomain;
+    }
+
     const checkoutItems = items.map((i) => ({
       id: i.id,
       quantity: i.quantity,
       variantId: i.variantId,
       billingCycle: (i as any).billingCycle || 'monthly',
       durationMonths: (i as any).durationMonths || 1,
+      isRenewal: i.isRenewal || false,
+      renewalLicenseKey: i.renewalLicenseKey || undefined,
     }));
 
     try {
@@ -259,11 +361,16 @@ export default function CheckoutPage() {
                           label={isMultiDomain ? "Domain(s) for License Registration" : "Domain for License Registration"}
                           placeholder={isMultiDomain ? "example.com or domain1.com, domain2.com" : "example.com"}
                           error={errors.domain?.message}
+                          disabled={isOnlyRenewals}
                           {...register('domain')}
                         />
-                        {isMultiDomain ? (
+                        {isOnlyRenewals ? (
+                          <p className="text-[10px] text-amber-600 font-semibold px-1">
+                            Plan renewal: domain license configuration is locked and cannot be changed.
+                          </p>
+                        ) : isMultiDomain ? (
                           <p className="text-[10px] text-muted-foreground font-semibold px-1">
-                            You are purchasing a multiple-domain plan. You can register multiple domains by separating them with commas (e.g. <span className="font-mono font-bold text-slate-700 dark:text-slate-355">domain1.com, domain2.com</span>).
+                            You are purchasing a multiple-domain plan. You can register multiple domains by separating them with commas (e.g. <span className="font-mono font-bold text-slate-700">domain1.com, domain2.com</span>).
                           </p>
                         ) : (
                           <p className="text-[10px] text-muted-foreground font-semibold px-1">
@@ -288,35 +395,35 @@ export default function CheckoutPage() {
                     {...register('addressLine2')}
                   />
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                    <div className="col-span-2 sm:col-span-2">
-                      <Input
-                        label="City"
-                        placeholder="San Francisco"
-                        error={errors.city?.message}
-                        {...register('city')}
-                      />
-                    </div>
-                    <Input
-                      label="State"
-                      placeholder="CA"
-                      error={errors.state?.message}
-                      {...register('state')}
+                  <Select
+                    label="Country"
+                    error={errors.country?.message}
+                    options={countryOptions}
+                    {...register('country')}
+                  />
+
+                  <Select
+                    label="State"
+                    error={errors.state?.message}
+                    options={stateOptions}
+                    {...register('state')}
+                  />
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <Select
+                      label="City"
+                      error={errors.city?.message}
+                      options={cityOptions}
+                      {...register('city')}
                     />
                     <Input
                       label="Postal Code"
-                      placeholder="94103"
+                      placeholder="2000"
+                      maxLength={6}
                       error={errors.postalCode?.message}
-                      {...register('postalCode')}
+                      {...register('postalCode', { onChange: handlePostalCodeChange })}
                     />
                   </div>
-
-                  <Input
-                    label="Country"
-                    placeholder="United States"
-                    error={errors.country?.message}
-                    {...register('country')}
-                  />
 
                   <Button type="submit" className="w-full mt-4 h-11" isLoading={isSubmittingBilling}>
                     Continue to Payment Method
@@ -342,6 +449,7 @@ export default function CheckoutPage() {
                       clientSecret={clientSecret}
                       orderNumber={orderNumber}
                       totalAmount={total}
+                      cardholderName={`${watch('firstName')} ${watch('lastName')}`.trim()}
                     />
                   </Elements>
                 ) : (
@@ -376,12 +484,17 @@ export default function CheckoutPage() {
                     <div className="flex gap-2.5 items-center">
                       <div className="h-10 w-12 bg-secondary/30 rounded border border-border flex-shrink-0">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
+                        <img src={item.image_url || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80'} alt={item.name} className="w-full h-full object-cover" />
                       </div>
                       <div>
                         <h4 className="text-xs font-bold text-foreground line-clamp-1">{item.name}</h4>
                         {item.variantName && (
-                          <span className="block text-[10px] text-indigo-650 dark:text-indigo-400 font-bold">{item.variantName}</span>
+                          <span className="block text-[10px] text-indigo-650 font-bold">{item.variantName}</span>
+                        )}
+                        {item.isRenewal && item.startDate && item.endDate && (
+                          <span className="block text-[10px] text-amber-600 font-bold mt-0.5">
+                            🔄 Renewal: {item.startDate} - {item.endDate}
+                          </span>
                         )}
                         <span className="text-[10px] text-muted-foreground">{item.quantity}x @ ${item.price}</span>
                       </div>

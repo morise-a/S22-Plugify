@@ -35,8 +35,8 @@ export function ConfirmationModal({
         return (
           <div className="relative mx-auto w-14 h-14 flex items-center justify-center group">
             {/* Outer soft glowing ring */}
-            <div className="absolute inset-0 rounded-full bg-red-500/10 dark:bg-red-500/5 animate-ping opacity-75" style={{ animationDuration: '3s' }} />
-            <div className="absolute inset-1 rounded-full bg-red-50/80 dark:bg-red-950/20 border border-red-100 dark:border-red-900/10" />
+            <div className="absolute inset-0 rounded-full bg-red-500/10 animate-ping opacity-75" style={{ animationDuration: '3s' }} />
+            <div className="absolute inset-1 rounded-full bg-red-50/80 border border-red-100" />
             <div className={`${iconBase} bg-red-500 text-white shadow-[0_4px_12px_rgba(239,68,68,0.25)]`}>
               <Trash2 className="h-5 w-5" />
             </div>
@@ -45,8 +45,8 @@ export function ConfirmationModal({
       case 'warning':
         return (
           <div className="relative mx-auto w-14 h-14 flex items-center justify-center group">
-            <div className="absolute inset-0 rounded-full bg-amber-500/10 dark:bg-amber-500/5 animate-ping opacity-75" style={{ animationDuration: '3s' }} />
-            <div className="absolute inset-1 rounded-full bg-amber-50/80 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/10" />
+            <div className="absolute inset-0 rounded-full bg-amber-500/10 animate-ping opacity-75" style={{ animationDuration: '3s' }} />
+            <div className="absolute inset-1 rounded-full bg-amber-50/80 border border-amber-100" />
             <div className={`${iconBase} bg-amber-500 text-white shadow-[0_4px_12px_rgba(245,158,11,0.25)]`}>
               <AlertTriangle className="h-5 w-5" />
             </div>
@@ -55,8 +55,8 @@ export function ConfirmationModal({
       case 'info':
         return (
           <div className="relative mx-auto w-14 h-14 flex items-center justify-center group">
-            <div className="absolute inset-0 rounded-full bg-blue-500/10 dark:bg-blue-500/5 animate-ping opacity-75" style={{ animationDuration: '3s' }} />
-            <div className="absolute inset-1 rounded-full bg-blue-50/80 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/10" />
+            <div className="absolute inset-0 rounded-full bg-blue-500/10 animate-ping opacity-75" style={{ animationDuration: '3s' }} />
+            <div className="absolute inset-1 rounded-full bg-blue-50/80 border border-blue-100" />
             <div className={`${iconBase} bg-blue-500 text-white shadow-[0_4px_12px_rgba(59,130,246,0.25)]`}>
               <Info className="h-5 w-5" />
             </div>
@@ -65,8 +65,8 @@ export function ConfirmationModal({
       default:
         return (
           <div className="relative mx-auto w-14 h-14 flex items-center justify-center group">
-            <div className="absolute inset-0 rounded-full bg-indigo-500/10 dark:bg-indigo-500/5 animate-ping opacity-75" style={{ animationDuration: '3s' }} />
-            <div className="absolute inset-1 rounded-full bg-indigo-50/80 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/10" />
+            <div className="absolute inset-0 rounded-full bg-indigo-500/10 animate-ping opacity-75" style={{ animationDuration: '3s' }} />
+            <div className="absolute inset-1 rounded-full bg-indigo-50/80 border border-indigo-100" />
             <div className={`${iconBase} bg-indigo-500 text-white shadow-[0_4px_12px_rgba(99,102,241,0.25)]`}>
               <AlertTriangle className="h-5 w-5" />
             </div>
@@ -95,14 +95,14 @@ export function ConfirmationModal({
             variant="outline" 
             onClick={onClose} 
             disabled={isLoading} 
-            className="w-full h-10 rounded-xl font-bold text-[10px] uppercase tracking-wider bg-background text-muted-foreground hover:bg-muted/10 border border-border/60 hover:text-foreground transition-all duration-200 shadow-sm active:scale-95 cursor-pointer"
+            className="w-full h-10 rounded-xl font-bold text-[10px] capitalize tracking-wider bg-background text-muted-foreground hover:bg-muted/10 border border-border/60 hover:text-foreground transition-all duration-200 shadow-sm active:scale-95 cursor-pointer"
           >
             {cancelText}
           </Button>
           <button
             onClick={onConfirm}
             disabled={isLoading}
-            className={`w-full h-10 rounded-xl font-bold text-[10px] uppercase tracking-wider text-white shadow-sm transition-all duration-200 active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 ${
+            className={`w-full h-10 rounded-xl font-bold text-[10px] capitalize tracking-wider text-white shadow-sm transition-all duration-200 active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 ${
               variant === 'destructive'
                 ? 'bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 shadow-red-500/10 hover:shadow-red-500/25 border border-red-500/30'
                 : variant === 'warning'

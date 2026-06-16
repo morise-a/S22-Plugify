@@ -5,41 +5,53 @@ import { AdminDashboardClient } from '@/components/admin/dashboard-client';
 export const revalidate = 0; // Disable cache on admin dashboard to show up-to-date metrics
 
 export default async function AdminDashboardPage() {
-  const supabase = await createClient();
+  let totalRevenue = 0;
+  let customerCount = 0;
+  let productCount = 0;
+  let recentOrders: any[] = [];
 
-  // 1. Fetch total revenue (sum of payments succeeded)
-  const { data: payments } = await supabase
-    .from('payments')
-    .select('amount')
-    .eq('status', 'succeeded');
-  const totalRevenue = payments?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
+  try {
+    const supabase = await createClient();
 
-  // 2. Fetch customer count
-  const { count: customerCount } = await supabase
-    .from('users')
-    .select('*', { count: 'exact', head: true })
-    .eq('role', 'customer');
+    // 1. Fetch total revenue (sum of payments succeeded)
+    const { data: payments } = await supabase
+      .from('payments')
+      .select('amount')
+      .eq('status', 'succeeded');
+    totalRevenue = payments?.reduce((sum, p) => sum + Number(p.amount), 0) || 0;
 
-  // 3. Fetch product count
-  const { count: productCount } = await supabase
-    .from('products')
-    .select('*', { count: 'exact', head: true });
+    // 2. Fetch customer count
+    const { count: custCount } = await supabase
+      .from('users')
+      .select('*', { count: 'exact', head: true })
+      .eq('role', 'customer');
+    customerCount = custCount || 0;
 
-  // 4. Fetch recent orders
-  const { data: recentOrders } = await supabase
-    .from('orders')
-    .select(`
-      id,
-      order_number,
-      total,
-      status,
-      created_at,
-      billing_first_name,
-      billing_last_name,
-      billing_email
-    `)
-    .order('created_at', { ascending: false })
-    .limit(5);
+    // 3. Fetch product count
+    const { count: prodCount } = await supabase
+      .from('products')
+      .select('*', { count: 'exact', head: true });
+    productCount = prodCount || 0;
+
+    // 4. Fetch recent orders
+    const { data: recOrds } = await supabase
+      .from('orders')
+      .select(`
+        id,
+        order_number,
+        total,
+        status,
+        created_at,
+        billing_first_name,
+        billing_last_name,
+        billing_email
+      `)
+      .order('created_at', { ascending: false })
+      .limit(5);
+    recentOrders = recOrds || [];
+  } catch (error) {
+    console.error('Failed to load admin dashboard metrics:', error);
+  }
 
   // 5. Build payment logs for chart data (group by date)
   // Let's create a list of recent 7 days or mock charts data to ensure beautiful charting

@@ -28,7 +28,7 @@ export default async function CheckoutFailedPage(props: FailedPageProps) {
         </p>
       </div>
 
-      <div className="p-5 border border-destructive/20 bg-destructive/5 dark:bg-destructive/10 rounded-2xl w-full text-xs text-left space-y-3">
+      <div className="p-5 border border-destructive/20 bg-destructive/5 rounded-2xl w-full text-xs text-left space-y-3">
         {orderNumber && (
           <div className="flex justify-between font-semibold border-b border-destructive/20 pb-2">
             <span className="text-muted-foreground">Order Reference:</span>

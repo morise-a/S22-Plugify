@@ -1,9 +1,25 @@
 'use client';
 
 import * as React from 'react';
+import { useRouter } from 'next/navigation';
 import { Bell, CheckCheck, Package, AlertTriangle, Info, X } from 'lucide-react';
 import { getNotificationsAction, markNotificationReadAction, markAllNotificationsReadAction } from '../../app/actions/notifications';
 import type { Notification } from '../../app/actions/notifications';
+
+function getNotificationLink(title: string, message: string, isAdmin: boolean): string {
+  if (isAdmin) {
+    return '/admin/dashboard';
+  }
+  
+  const t = title.toLowerCase();
+  const m = message.toLowerCase();
+  
+  if (t.includes('decline') || t.includes('fail') || m.includes('fail') || m.includes('decline')) {
+    return '/checkout';
+  }
+  
+  return '/customer/dashboard';
+}
 
 interface NotificationBellProps {
   /** 'admin' uses indigo-slate styling; 'customer' uses the app primary theme */
@@ -34,6 +50,7 @@ function getNotifIcon(title: string) {
 }
 
 export function NotificationBell({ variant = 'customer', align = 'right' }: NotificationBellProps) {
+  const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [notifications, setNotifications] = React.useState<Notification[]>([]);
   const [loading, setLoading] = React.useState(false);
@@ -77,6 +94,15 @@ export function NotificationBell({ variant = 'customer', align = 'right' }: Noti
       prev.map((n) => (n.id === id ? { ...n, read: true } : n))
     );
     await markNotificationReadAction(id);
+  };
+
+  const handleNotificationClick = (notif: Notification) => {
+    if (!notif.read) {
+      handleMarkRead(notif.id);
+    }
+    setOpen(false);
+    const link = getNotificationLink(notif.title, notif.message, isAdmin);
+    router.push(link);
   };
 
   const handleMarkAllRead = async () => {
@@ -182,7 +208,8 @@ export function NotificationBell({ variant = 'customer', align = 'right' }: Noti
               notifications.map((notif) => (
                 <div
                   key={notif.id}
-                  className={`group flex items-start gap-3 px-4 py-3 transition-colors cursor-default ${
+                  onClick={() => handleNotificationClick(notif)}
+                  className={`group flex items-start gap-3 px-4 py-3 transition-colors cursor-pointer ${
                     notif.read
                       ? isAdmin
                         ? 'bg-white hover:bg-slate-50/60'
@@ -231,7 +258,10 @@ export function NotificationBell({ variant = 'customer', align = 'right' }: Noti
                   {/* Mark read dot */}
                   {!notif.read && (
                     <button
-                      onClick={() => handleMarkRead(notif.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleMarkRead(notif.id);
+                      }}
                       className={`flex-shrink-0 mt-1 h-2 w-2 rounded-full cursor-pointer transition-all hover:scale-125 ${
                         isAdmin ? 'bg-indigo-500' : 'bg-primary'
                       }`}

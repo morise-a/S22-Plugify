@@ -132,7 +132,7 @@ export default function ContactPage() {
             <h3 className="text-sm font-semibold text-foreground">Find us on the map</h3>
             <div className="h-56 bg-secondary/30 rounded-2xl border border-border/60 flex items-center justify-center relative overflow-hidden group shadow-inner">
               {/* Mock Map Background Visuals */}
-              <div className="absolute inset-0 bg-[radial-gradient(#ddd_1px,transparent_1px)] dark:bg-[radial-gradient(#333_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
+              <div className="absolute inset-0 bg-[radial-gradient(#ddd_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
 
               {/* Map pin bubble animation */}
               <div className="relative z-10 flex flex-col items-center gap-1 hover:scale-105 transition-transform duration-300">

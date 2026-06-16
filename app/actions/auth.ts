@@ -172,16 +172,21 @@ export async function resetPasswordAction(password: string) {
  * Retrieves the currently authenticated user's profile and database record.
  */
 export async function getCurrentUser() {
-  const supabase = await createActionClient();
-  
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
+  try {
+    const supabase = await createActionClient();
+    
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
 
-  const { data: dbUser } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', user.id)
-    .single();
+    const { data: dbUser } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', user.id)
+      .single();
 
-  return dbUser || null;
+    return dbUser || null;
+  } catch (err) {
+    console.error('Failed to get authenticated current user (e.g. offline/timeout):', err);
+    return null;
+  }
 }

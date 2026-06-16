@@ -17,6 +17,8 @@ export function AutoDownloader({ products }: AutoDownloaderProps) {
   React.useEffect(() => {
     if (!products || products.length === 0) return;
 
+    const timers: NodeJS.Timeout[] = [];
+
     // Trigger download for each url with a small offset delay to prevent browser blockages
     products.forEach((prod, index) => {
       const timer = setTimeout(() => {
@@ -41,8 +43,12 @@ export function AutoDownloader({ products }: AutoDownloaderProps) {
         }
       }, index * 1000);
 
-      return () => clearTimeout(timer);
+      timers.push(timer);
     });
+
+    return () => {
+      timers.forEach((t) => clearTimeout(t));
+    };
   }, [products]);
 
   const handleManualDownload = (url: string, name: string) => {
@@ -72,7 +78,7 @@ export function AutoDownloader({ products }: AutoDownloaderProps) {
       )}
 
       {downloadStatus === 'success' && (
-        <div className="flex items-center gap-3 p-4 bg-emerald-500/10 border border-emerald-500/25 rounded-xl text-emerald-850 text-xs font-semibold shadow-[0_2px_10px_rgba(16,185,129,0.03)] dark:text-emerald-400">
+        <div className="flex items-center gap-3 p-4 bg-emerald-500/10 border border-emerald-500/25 rounded-xl text-emerald-850 text-xs font-semibold shadow-[0_2px_10px_rgba(16,185,129,0.03)]">
           <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0" />
           <p className="text-left">
             Automatic downloads started! Look at your browser downloads bar.
@@ -81,7 +87,7 @@ export function AutoDownloader({ products }: AutoDownloaderProps) {
       )}
 
       {downloadStatus === 'blocked' && (
-        <div className="flex items-center gap-3 p-4 bg-amber-500/10 border border-amber-500/25 rounded-xl text-amber-850 text-xs font-semibold shadow-[0_2px_10px_rgba(245,158,11,0.03)] dark:text-amber-400">
+        <div className="flex items-center gap-3 p-4 bg-amber-500/10 border border-amber-500/25 rounded-xl text-amber-850 text-xs font-semibold shadow-[0_2px_10px_rgba(245,158,11,0.03)]">
           <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0" />
           <p className="text-left">
             Your browser may have blocked multiple automatic downloads. Please use the manual download links below.
@@ -91,7 +97,7 @@ export function AutoDownloader({ products }: AutoDownloaderProps) {
 
       {/* Manual Downloads List Card */}
       <div className="border border-border/60 bg-card rounded-2xl p-5 shadow-[0_8px_30px_rgb(0,0,0,0.01)] space-y-3">
-        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest text-left">Your Downloadable Plugins</h3>
+        <h3 className="text-xs font-bold text-slate-500 capitalize tracking-widest text-left">Your Downloadable Plugins</h3>
         <div className="divide-y divide-border/40">
           {products.map((prod, idx) => (
             <div key={idx} className="py-3.5 first:pt-0 last:pb-0 flex justify-between items-center gap-4">

@@ -66,9 +66,9 @@ function ToastContainer() {
           };
 
           const borderColors = {
-            success: 'border-emerald-500/20 bg-emerald-500/5 dark:bg-emerald-500/10',
-            error: 'border-destructive/20 bg-destructive/5 dark:bg-destructive/10',
-            info: 'border-indigo-500/20 bg-indigo-500/5 dark:bg-indigo-500/10',
+            success: 'border-emerald-500/20 bg-emerald-500/5',
+            error: 'border-destructive/20 bg-destructive/5',
+            info: 'border-indigo-500/20 bg-indigo-500/5',
           };
 
           return (

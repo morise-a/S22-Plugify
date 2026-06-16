@@ -30,7 +30,7 @@ export default async function PrivacyPage() {
           />
         ) : (
           <div className="flex flex-col items-center justify-center py-12 text-center gap-4 animate-fade-in">
-            <div className="p-4 rounded-full bg-emerald-50 dark:bg-emerald-950/20 text-emerald-500 border border-emerald-100 dark:border-emerald-900/30">
+            <div className="p-4 rounded-full bg-emerald-50 text-emerald-500 border border-emerald-100">
               <ShieldCheck className="h-8 w-8" />
             </div>
             <div className="space-y-1.5 max-w-sm">

@@ -3,8 +3,14 @@ import { redirect } from 'next/navigation';
 import { createClient } from '../../lib/supabase/server';
 
 export default async function CustomerLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  let user = null;
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase.auth.getUser();
+    user = data?.user || null;
+  } catch (error) {
+    console.error('Failed to resolve auth session in CustomerLayout:', error);
+  }
 
   if (!user) {
     redirect('/signin');

@@ -112,6 +112,7 @@ export async function createProductAction(formData: FormData) {
   const price = parseFloat(formData.get('price') as string);
   const isActive = formData.get('is_active') === 'true';
   const variantsStr = formData.get('variants') as string;
+  const apiKeys = formData.getAll('apiKeys') as string[];
 
   // Validate fields via Zod
   const validation = productSchema.safeParse({ name, description, price });
@@ -140,6 +141,7 @@ export async function createProductAction(formData: FormData) {
       price,
       is_active: isActive,
       plugin_file_url: pluginFileUrl,
+      api_key: apiKeys.length > 0 ? apiKeys : null,
     })
     .select()
     .single();
@@ -237,6 +239,7 @@ export async function updateProductAction(productId: string, formData: FormData)
   const price = parseFloat(formData.get('price') as string);
   const isActive = formData.get('is_active') === 'true';
   const variantsStr = formData.get('variants') as string;
+  const apiKeys = formData.getAll('apiKeys') as string[];
 
   const validation = productSchema.safeParse({ name, description, price });
   if (!validation.success) {
@@ -264,6 +267,7 @@ export async function updateProductAction(productId: string, formData: FormData)
     description,
     price,
     is_active: isActive,
+    api_key: apiKeys.length > 0 ? apiKeys : null,
     updated_at: new Date().toISOString()
   };
   if (pluginFileUrl !== undefined) {

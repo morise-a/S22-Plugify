@@ -210,8 +210,8 @@ export function AdminDashboardClient({ metrics }: AdminDashboardClientProps) {
                           <span className="text-[9px] text-slate-400 font-bold mt-0.5">{order.billing_email}</span>
                         </div>
                       </TableCell>
-                      <TableCell className="text-xs text-slate-500 font-semibold py-3">
-                        {new Date(order.created_at).toLocaleDateString(undefined, {
+                      <TableCell className="text-xs text-slate-500 font-semibold py-3" suppressHydrationWarning>
+                        {new Date(order.created_at).toLocaleDateString('en-US', {
                           year: 'numeric',
                           month: 'short',
                           day: 'numeric'

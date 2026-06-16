@@ -37,8 +37,8 @@ export function Hero() {
     <section className="relative overflow-hidden min-h-[calc(100vh-4rem)] flex items-center justify-center border-b border-border/40 py-12 lg:py-0">
       {/* Decorative background radial glow */}
       <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,rgba(99,102,241,0.15)_0%,transparent_75%)]" />
-      <div className="absolute top-0 right-1/4 -z-10 h-[500px] w-[500px] rounded-full bg-primary/10 blur-3xl opacity-60 dark:opacity-40" />
-      <div className="absolute bottom-10 left-1/4 -z-10 h-[500px] w-[500px] rounded-full bg-indigo-500/10 blur-3xl opacity-60 dark:opacity-40" />
+      <div className="absolute top-0 right-1/4 -z-10 h-[500px] w-[500px] rounded-full bg-primary/10 blur-3xl opacity-60" />
+      <div className="absolute bottom-10 left-1/4 -z-10 h-[500px] w-[500px] rounded-full bg-indigo-500/10 blur-3xl opacity-60" />
 
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 w-full">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">

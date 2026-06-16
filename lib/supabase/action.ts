@@ -23,6 +23,14 @@ export async function createActionClient() {
           }
         },
       },
+      global: {
+        fetch: (url, options) => {
+          return fetch(url, {
+            ...options,
+            signal: options?.signal || AbortSignal.timeout(3000),
+          });
+        },
+      },
     }
   );
 }

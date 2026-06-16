@@ -16,7 +16,6 @@ export async function POST(request: Request) {
     const { domain, email, license_key, licenseKey, plugin_name, pluginName } = body;
     const incomingLicenseKey = license_key || licenseKey;
     const incomingPluginName = plugin_name || pluginName;
-    console.log('Body Checking:', body);
     if (!domain || !email || !incomingLicenseKey || !incomingPluginName) {
       return NextResponse.json(
         { status: false, error: 'Missing required fields: domain, email, license_key, and plugin_name are required.' },
@@ -177,6 +176,19 @@ export async function POST(request: Request) {
       );
     }
 
+    // Fetch custom API key associated with the product
+    let productApiKey = null;
+    try {
+      const { data: productData } = await supabaseAdmin
+        .from('products')
+        .select('api_key')
+        .eq('id', license.product_id)
+        .single();
+      productApiKey = productData?.api_key || null;
+    } catch (dbErr) {
+      console.error('Failed to retrieve product API key:', dbErr);
+    }
+
     // License is valid! Retrieve Google OAuth credentials from env
     const googleClientId = process.env.GOOGLE_CLIENT_ID || '';
     const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET || '';
@@ -206,14 +218,27 @@ export async function POST(request: Request) {
       return `${mm}/${dd}/${yyyy}`;
     };
 
-    return NextResponse.json({
+    const responseData: any = {
       status: true,
       message: "License Verified Successfully",
       purchased_date: formatDate(license.purchased_date),
       expiry_date: formatDate(license.expiry_date),
       plan_name: license.plan_name,
-      payload: encryptionSecret
-    });
+    };
+
+    if (productApiKey) {
+      const keysArray = Array.isArray(productApiKey) ? productApiKey : [productApiKey];
+      const validKeys = keysArray.filter((k: any) => typeof k === 'string' && k.trim() !== '');
+      if (validKeys.length === 1) {
+        responseData.payload = validKeys[0];
+      } else if (validKeys.length > 1) {
+        validKeys.forEach((key, idx) => {
+          responseData[`payload-${idx + 1}`] = key;
+        });
+      }
+    }
+
+    return NextResponse.json(responseData);
   } catch (error: unknown) {
     console.error('License verification internal error:', error);
     return NextResponse.json(

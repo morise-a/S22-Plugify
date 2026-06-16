@@ -2,6 +2,7 @@
 
 import { createActionClient } from '../../lib/supabase/action';
 import { getStripeServerInstance } from '../../lib/stripe/server';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 
 export interface CheckoutBillingInput {
   firstName: string;
@@ -23,6 +24,8 @@ interface CheckoutItem {
   quantity: number;
   billingCycle?: 'monthly' | 'yearly';
   durationMonths?: number;
+  isRenewal?: boolean;
+  renewalLicenseKey?: string;
 }
 
 // Flat tax rate and Stripe transaction fees
@@ -50,9 +53,19 @@ export async function createPaymentIntentAction(
   }
 
   const supabase = await createActionClient();
+  const supabaseAdmin = createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
 
   // Retrieve user (optional - allow guest checkout or force logged in)
-  const { data: { user } } = await supabase.auth.getUser();
+  let user = null;
+  try {
+    const { data: userData } = await supabase.auth.getUser();
+    user = userData?.user || null;
+  } catch (err) {
+    console.error('Failed to retrieve user session during checkout (e.g. offline/timeout):', err);
+  }
 
   // 1. Fetch products from database to prevent price manipulation
   const productIds = items.map((i) => i.id);
@@ -82,7 +95,14 @@ export async function createPaymentIntentAction(
 
   // 2. Perform server-side calculation of subtotal, tax, processing fee, and total
   let subtotal = 0;
-  const itemDetails: { id: string; name: string; price: number; quantity: number }[] = [];
+  const itemDetails: {
+    id: string;
+    name: string;
+    price: number;
+    quantity: number;
+    isRenewal: boolean;
+    renewalLicenseKey: string | null;
+  }[] = [];
 
   for (const item of items) {
     const dbProduct = dbProducts.find((p) => p.id === item.id);
@@ -126,6 +146,8 @@ export async function createPaymentIntentAction(
       name: displayName,
       price: price,
       quantity: item.quantity,
+      isRenewal: item.isRenewal || false,
+      renewalLicenseKey: item.renewalLicenseKey || null,
     });
   }
 
@@ -175,7 +197,7 @@ export async function createPaymentIntentAction(
     });
 
     // 5. Database Transaction: Save Pending Order
-    const { data: order, error: orderError } = await supabase
+    const { data: order, error: orderError } = await supabaseAdmin
       .from('orders')
       .insert({
         user_id: user?.id || null,
@@ -209,17 +231,23 @@ export async function createPaymentIntentAction(
 
     // Save Order Items
     for (const detail of itemDetails) {
-      await supabase.from('order_items').insert({
+      const { error: itemErr } = await supabaseAdmin.from('order_items').insert({
         order_id: order.id,
         product_id: detail.id,
         product_name: detail.name,
         price: detail.price,
         quantity: detail.quantity,
+        is_renewal: detail.isRenewal,
+        renewal_license_key: detail.renewalLicenseKey,
       });
+      if (itemErr) {
+        console.error('Order item insertion error:', itemErr);
+        throw new Error(`Failed to store order item: ${itemErr.message}`);
+      }
     }
 
     // Save Pending Payment record
-    await supabase.from('payments').insert({
+    const { error: paymentErr } = await supabaseAdmin.from('payments').insert({
       order_id: order.id,
       stripe_payment_intent_id: paymentIntent.id,
       amount: total,
@@ -227,6 +255,10 @@ export async function createPaymentIntentAction(
       status: 'pending',
       processing_fee: processingFee,
     });
+    if (paymentErr) {
+      console.error('Payment insertion error:', paymentErr);
+      throw new Error(`Failed to store pending payment: ${paymentErr.message}`);
+    }
 
     return {
       success: true,
@@ -351,7 +383,11 @@ export async function getOrderDetailsAction(identifier: string) {
  * Retrieve downloadable products for a paid order (used by real-time client verification).
  */
 export async function getOrderDownloadableProductsAction(orderNumber: string) {
-  const supabase = await createActionClient();
+  // Use service-role client on the server to bypass RLS policies for order/download lookup
+  const supabase = createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
 
   const { data: order, error } = await supabase
     .from('orders')
@@ -472,4 +508,55 @@ export async function updatePurchasedDomainAction(domainId: string, domainName: 
   revalidatePath('/customer/dashboard', 'layout');
 
   return { success: true };
+}
+
+/**
+ * Marks a pending order and its associated payment as failed in the database.
+ */
+export async function markOrderAsFailedAction(orderNumber: string) {
+  const supabase = await createActionClient();
+
+  try {
+    const { data: order, error: findError } = await supabase
+      .from('orders')
+      .select('id')
+      .eq('order_number', orderNumber)
+      .single();
+
+    if (findError || !order) {
+      console.error(`Order not found for failure mark: ${orderNumber}`, findError);
+      return { success: false, error: 'Order not found.' };
+    }
+
+    // Update order status to failed
+    const { error: orderErr } = await supabase
+      .from('orders')
+      .update({
+        status: 'failed',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', order.id);
+
+    if (orderErr) {
+      console.error(`Failed to update order status to failed: ${order.id}`, orderErr);
+    }
+
+    // Update payment status to failed
+    const { error: paymentErr } = await supabase
+      .from('payments')
+      .update({
+        status: 'failed',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('order_id', order.id);
+
+    if (paymentErr) {
+      console.error(`Failed to update payment status to failed for order: ${order.id}`, paymentErr);
+    }
+
+    return { success: true };
+  } catch (err) {
+    console.error('Failed to run markOrderAsFailedAction:', err);
+    return { success: false, error: 'Failed to process order failure update.' };
+  }
 }

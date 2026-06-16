@@ -71,7 +71,7 @@ export default function ResetPasswordPage() {
           </CardHeader>
           <CardContent>
             {isDone ? (
-              <div className="flex flex-col items-center justify-center text-center p-4 border border-emerald-500/20 bg-emerald-500/5 dark:bg-emerald-500/10 rounded-xl gap-2">
+              <div className="flex flex-col items-center justify-center text-center p-4 border border-emerald-500/20 bg-emerald-500/5 rounded-xl gap-2">
                 <CheckCircle className="h-10 w-10 text-emerald-500" />
                 <h3 className="font-semibold text-foreground">Credentials Updated</h3>
                 <p className="text-xs text-muted-foreground mb-4">

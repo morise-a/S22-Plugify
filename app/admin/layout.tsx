@@ -4,20 +4,30 @@ import { createClient } from '../../lib/supabase/server';
 import { AdminSidebar } from '../../components/admin/sidebar';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  let user = null;
+  let dbUser = null;
+  
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase.auth.getUser();
+    user = data?.user || null;
+
+    if (user) {
+      const { data: dbUserData } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+      dbUser = dbUserData;
+    }
+  } catch (error) {
+    console.error('Failed to resolve auth session or DB user in AdminLayout:', error);
+  }
 
   // Guard: Verify user is authenticated
   if (!user) {
     redirect('/signin');
   }
-
-  // Fetch the role and details from the database
-  const { data: dbUser } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', user.id)
-    .single();
 
   // Guard: Verify user is admin
   if (!dbUser || dbUser.role !== 'admin') {

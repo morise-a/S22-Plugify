@@ -30,7 +30,7 @@ export default async function TermsPage() {
           />
         ) : (
           <div className="flex flex-col items-center justify-center py-12 text-center gap-4 animate-fade-in">
-            <div className="p-4 rounded-full bg-amber-50 dark:bg-amber-950/20 text-amber-500 border border-amber-100 dark:border-amber-900/30">
+            <div className="p-4 rounded-full bg-amber-50 text-amber-500 border border-amber-100">
               <ShieldAlert className="h-8 w-8" />
             </div>
             <div className="space-y-1.5 max-w-sm">

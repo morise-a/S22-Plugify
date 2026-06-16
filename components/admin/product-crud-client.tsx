@@ -36,6 +36,7 @@ interface Product {
   description: string;
   price: number;
   is_active: boolean;
+  api_key?: string[];
   product_images?: ProductImage[];
   product_variants?: ProductVariant[];
 }
@@ -73,6 +74,7 @@ export function ProductCrudClient({ initialProducts }: { initialProducts: Produc
     { name: 'Single Domain single layout', price: 99, domain_count: 1, layout_count: 1, billing_cycle: 'monthly' },
     { name: 'Multiple domain multiple layout', price: 299, domain_count: 5, layout_count: 5, billing_cycle: 'monthly' }
   ]);
+  const [apiKeys, setApiKeys] = React.useState<string[]>(['']);
 
   const {
     register,
@@ -97,6 +99,7 @@ export function ProductCrudClient({ initialProducts }: { initialProducts: Produc
       { name: 'Multiple domain multiple layout', price: 299, domain_count: 5, layout_count: 5, billing_cycle: 'monthly' }
     ]);
     reset({ name: '', description: '', price: 99 });
+    setApiKeys(['']);
     setCurrentStep(1);
     setIsModalOpen(true);
   };
@@ -130,6 +133,13 @@ export function ProductCrudClient({ initialProducts }: { initialProducts: Produc
       ? Number(product.product_variants[0].price)
       : Number(product.price) || 99;
 
+    if (product.api_key && Array.isArray(product.api_key)) {
+      setApiKeys(product.api_key.length > 0 ? product.api_key : ['']);
+    } else if (product.api_key) {
+      setApiKeys([product.api_key as any]);
+    } else {
+      setApiKeys(['']);
+    }
     reset({
       name: product.name,
       description: product.description,
@@ -197,10 +207,10 @@ export function ProductCrudClient({ initialProducts }: { initialProducts: Produc
               type="button"
               onClick={() => handleTabClick(item.step)}
               className={`group w-full flex items-center gap-3 py-2.5 px-3.5 rounded-xl text-xs font-bold transition-all duration-200 border cursor-pointer focus:outline-none ${isActive
-                ? 'bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-600/15 scale-[1.01] dark:bg-indigo-500 dark:border-indigo-500'
+                ? 'bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-600/15 scale-[1.01]'
                 : isCompleted
-                  ? 'bg-indigo-50/50 dark:bg-indigo-950/20 border-indigo-200/80 dark:border-indigo-900/60 text-slate-600'
-                  : 'border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:bg-indigo-50/30'
+                  ? 'bg-indigo-50/50 border-indigo-200/80 text-slate-600'
+                  : 'border-slate-200 text-slate-500 hover:bg-indigo-50/30'
                 }`}
             >
               {/* Icon Container */}
@@ -215,11 +225,11 @@ export function ProductCrudClient({ initialProducts }: { initialProducts: Produc
 
               {/* Title & Step Text */}
               <div className="flex flex-col items-start text-left leading-none">
-                <span className={`text-[9px] font-bold tracking-wide uppercase transition-colors duration-200 ${isActive
+                <span className={`text-[9px] font-bold tracking-wide capitalize transition-colors duration-200 ${isActive
                   ? 'text-white/80'
                   : isCompleted
                     ? 'text-slate-400'
-                    : 'text-slate-400 dark:text-slate-600 group-hover:text-indigo-450/80'
+                    : 'text-slate-400 group-hover:text-indigo-450/80'
                   }`}>
                   Step {item.step}
                 </span>
@@ -330,6 +340,9 @@ export function ProductCrudClient({ initialProducts }: { initialProducts: Produc
     const basePrice = variants.length > 0 ? Number(variants[0].price) : 99;
     formData.append('price', String(basePrice));
     formData.append('is_active', 'true'); // defaults to true on saves
+
+    const cleanApiKeys = apiKeys.map(k => k.trim()).filter(Boolean);
+    cleanApiKeys.forEach(k => formData.append('apiKeys', k));
 
     const variantsArr = variants.map(v => ({
       name: v.name || 'Standard Plan',
@@ -849,6 +862,57 @@ export function ProductCrudClient({ initialProducts }: { initialProducts: Produc
                 <Sparkles className="h-4.5 w-4.5 text-indigo-650 shrink-0 animate-pulse" />
                 <p>
                   Upload the software product `.zip` file here. When users complete payment, this file will download automatically.
+                </p>
+              </div>
+
+              {/* API Keys Inputs */}
+              <div className="space-y-3.5">
+                <label className="text-[10px] font-bold text-slate-400 capitalize tracking-widest">Product API Keys</label>
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                  {apiKeys.map((key, index) => (
+                    <div key={index} className="flex gap-2 items-center">
+                      <div className="flex-1">
+                        <Input
+                          placeholder="Enter custom product API Key"
+                          value={key}
+                          onChange={(e) => {
+                            const newKeys = [...apiKeys];
+                            newKeys[index] = e.target.value;
+                            setApiKeys(newKeys);
+                          }}
+                          className="focus-visible:ring-0 focus-visible:ring-offset-0 focus:ring-0 focus:outline-none"
+                        />
+                      </div>
+                      <div className="flex gap-1.5 shrink-0">
+                        {apiKeys.length > 1 && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            onClick={() => setApiKeys(apiKeys.filter((_, i) => i !== index))}
+                            className="h-9 w-9 shrink-0 text-red-500 border-red-200 hover:bg-red-50"
+                            title="Remove Key"
+                          >
+                            <X className="h-5 w-5" strokeWidth={2.5} />
+                          </Button>
+                        )}
+                        {index === apiKeys.length - 1 && (
+                          <Button
+                            type="button"
+                            size="icon"
+                            onClick={() => setApiKeys([...apiKeys, ''])}
+                            className="h-9 w-9 shrink-0"
+                            title="Add Key"
+                          >
+                            <Plus className="h-5 w-5" strokeWidth={2.5} />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[10px] text-muted-foreground font-semibold px-1">
+                  Configure one or more API keys to distribute on license verification. If no product keys are added, verification falls back to the system environment key.
                 </p>
               </div>
 

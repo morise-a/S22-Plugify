@@ -15,6 +15,8 @@ export interface CartItem {
   durationMonths?: number;
   startDate?: string;
   endDate?: string;
+  isRenewal?: boolean;
+  renewalLicenseKey?: string;
 }
 
 interface CartState {
@@ -24,6 +26,7 @@ interface CartState {
   addToCart: (item: Omit<CartItem, 'quantity'>, quantity?: number) => void;
   removeFromCart: (productId: string, variantId?: string) => void;
   updateQuantity: (productId: string, quantity: number, variantId?: string) => void;
+  updateCartItem: (productId: string, variantId: string | undefined, updatedFields: Partial<CartItem>) => void;
   applyCoupon: (code: string) => { success: boolean; message: string };
   removeCoupon: () => void;
   clearCart: () => void;
@@ -92,6 +95,43 @@ export const useCartStore = create<CartState>()(
               : i
           ),
         }));
+      },
+
+      updateCartItem: (productId, variantId, updatedFields) => {
+        set((state) => {
+          const itemToUpdate = state.items.find(
+            (i) => i.id === productId && i.variantId === variantId
+          );
+          if (!itemToUpdate) return {};
+
+          const updatedItem = { ...itemToUpdate, ...updatedFields };
+
+          // Check if another item with the new product/variant combo already exists
+          const duplicateIndex = state.items.findIndex(
+            (i) => i.id === productId && i.variantId === updatedItem.variantId && !(i.id === productId && i.variantId === variantId)
+          );
+
+          if (duplicateIndex !== -1) {
+            // Merge quantity
+            return {
+              items: state.items
+                .map((i, idx) => {
+                  if (idx === duplicateIndex) {
+                    return { ...i, quantity: i.quantity + updatedItem.quantity };
+                  }
+                  return i;
+                })
+                .filter((i) => !(i.id === productId && i.variantId === variantId)),
+            };
+          }
+
+          // Otherwise, just update the item
+          return {
+            items: state.items.map((i) =>
+              i.id === productId && i.variantId === variantId ? updatedItem : i
+            ),
+          };
+        });
       },
 
       applyCoupon: (code) => {

@@ -8,6 +8,7 @@ import { useToast } from '../ui/toast';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { motion } from 'framer-motion';
+import { ProductCard } from './product-card';
 
 interface ProductImage {
   id: string;
@@ -205,7 +206,7 @@ export function ProductDetailClient({ product, relatedProducts }: { product: Pro
             <img
               src={selectedImage}
               alt={product.name}
-              className="w-full h-full object-cover transition-all duration-300"
+              className="w-full h-full object-contain transition-all duration-300"
             />
           </div>
 
@@ -559,27 +560,10 @@ export function ProductDetailClient({ product, relatedProducts }: { product: Pro
       {relatedProducts.length > 0 && (
         <div className="space-y-6 border-t border-border/40 pt-12">
           <h3 className="text-xl font-bold text-foreground">Related Products</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-            {relatedProducts.map((rel) => {
-              const relImg = rel.product_images?.find((img) => !img.is_screenshot)?.image_url
-                || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80';
-              return (
-                <div
-                  key={rel.id}
-                  onClick={() => router.push(`/products/${rel.id}`)}
-                  className="border border-border/60 bg-card rounded-2xl overflow-hidden hover:shadow-md transition-all duration-300 cursor-pointer group"
-                >
-                  <div className="h-36 bg-secondary/20 overflow-hidden">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={relImg} alt={rel.name} className="w-full h-full object-cover group-hover:scale-105 transition-all duration-500" />
-                  </div>
-                  <div className="p-4 space-y-1">
-                    <h4 className="text-xs sm:text-sm font-bold text-foreground line-clamp-1 group-hover:text-primary transition-colors">{rel.name}</h4>
-                    <p className="text-xs font-bold text-foreground">${rel.price}</p>
-                  </div>
-                </div>
-              );
-            })}
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-6">
+            {relatedProducts.map((rel) => (
+              <ProductCard key={rel.id} product={rel} />
+            ))}
           </div>
         </div>
       )}

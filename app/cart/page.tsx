@@ -3,14 +3,16 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ShoppingBag, Trash2, ArrowRight, ArrowLeft, Ticket, Tag } from 'lucide-react';
+import { ShoppingBag, Trash2, ArrowRight, ArrowLeft, Ticket, Tag, Mail, Lock, User as UserIcon, Phone, ShieldAlert } from 'lucide-react';
 import { useCartStore } from '../../lib/store/use-cart-store';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { useToast } from '../../components/ui/toast';
 import { Card, CardContent } from '../../components/ui/card';
 import { ConfirmationModal } from '../../components/ui/confirmation-modal';
+import { Modal } from '../../components/ui/modal';
 import { getProductAction } from '../actions/products';
+import { signInAction, signUpAction, getCurrentUser } from '../actions/auth';
 
 export default function CartPage() {
   const router = useRouter();
@@ -30,6 +32,24 @@ export default function CartPage() {
   const [couponInput, setCouponInput] = React.useState('');
   const [deleteItem, setDeleteItem] = React.useState<{ id: string; variantId?: string; name: string } | null>(null);
   const [productsDetails, setProductsDetails] = React.useState<Record<string, any>>({});
+
+  // Auth modal states
+  const [isAuthModalOpen, setIsAuthModalOpen] = React.useState(false);
+  const [authTab, setAuthTab] = React.useState<'signin' | 'signup'>('signin');
+  const [isAuthSubmitting, setIsAuthSubmitting] = React.useState(false);
+
+  // Sign in form state
+  const [signInEmail, setSignInEmail] = React.useState('');
+  const [signInPassword, setSignInPassword] = React.useState('');
+  const [signInError, setSignInError] = React.useState('');
+
+  // Sign up form state
+  const [signUpFirstName, setSignUpFirstName] = React.useState('');
+  const [signUpLastName, setSignUpLastName] = React.useState('');
+  const [signUpEmail, setSignUpEmail] = React.useState('');
+  const [signUpPhone, setSignUpPhone] = React.useState('');
+  const [signUpPassword, setSignUpPassword] = React.useState('');
+  const [signUpError, setSignUpError] = React.useState('');
 
   React.useEffect(() => {
     const fetchDetails = async () => {
@@ -185,8 +205,121 @@ export default function CartPage() {
     }
   };
 
-  const handleCheckout = () => {
-    router.push('/checkout');
+  const handleCheckout = async () => {
+    const user = await getCurrentUser();
+    if (user) {
+      router.push('/checkout');
+    } else {
+      setSignInEmail('');
+      setSignInPassword('');
+      setSignInError('');
+      setSignUpFirstName('');
+      setSignUpLastName('');
+      setSignUpEmail('');
+      setSignUpPhone('');
+      setSignUpPassword('');
+      setSignUpError('');
+      setAuthTab('signin');
+      setIsAuthModalOpen(true);
+    }
+  };
+
+  const handleSignInSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSignInError('');
+    if (!signInEmail || !signInPassword) {
+      setSignInError('Please enter both email and password.');
+      return;
+    }
+    setIsAuthSubmitting(true);
+    try {
+      const res = await signInAction({ email: signInEmail, password: signInPassword });
+      if (res.success && res.user) {
+        showToast('Welcome back!', 'success', 'Successfully signed in.');
+        setIsAuthModalOpen(false);
+        router.push('/checkout');
+        router.refresh();
+      } else {
+        setSignInError(res.error || 'Invalid email or password.');
+      }
+    } catch (err) {
+      setSignInError('An unexpected error occurred during sign in.');
+    } finally {
+      setIsAuthSubmitting(false);
+    }
+  };
+
+  const handlePhoneChange = (val: string) => {
+    const raw = val.replace(/\D/g, '');
+    let formatted = '';
+    if (raw.length > 0) {
+      formatted = raw.slice(0, 4);
+      if (raw.length > 4) {
+        formatted += ' ' + raw.slice(4, 7);
+      }
+      if (raw.length > 7) {
+        formatted += ' ' + raw.slice(7, 10);
+      }
+    }
+    setSignUpPhone(formatted);
+  };
+
+  const handleSignUpSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSignUpError('');
+    
+    if (!signUpFirstName || !signUpLastName || !signUpEmail || !signUpPhone || !signUpPassword) {
+      setSignUpError('All fields are required.');
+      return;
+    }
+
+    if (signUpPassword.length < 8) {
+      setSignUpError('Password must be at least 8 characters long.');
+      return;
+    }
+
+    if (!/[A-Z]/.test(signUpPassword)) {
+      setSignUpError('Password must contain at least one uppercase letter.');
+      return;
+    }
+
+    if (!/[0-9]/.test(signUpPassword)) {
+      setSignUpError('Password must contain at least one number.');
+      return;
+    }
+
+    if (!/[^A-Za-z0-9]/.test(signUpPassword)) {
+      setSignUpError('Password must contain at least one special character.');
+      return;
+    }
+
+    if (signUpPhone.length !== 12) {
+      setSignUpError('Phone format must be XXXX XXX XXX.');
+      return;
+    }
+
+    setIsAuthSubmitting(true);
+    try {
+      const res = await signUpAction({
+        firstName: signUpFirstName,
+        lastName: signUpLastName,
+        email: signUpEmail,
+        phone: signUpPhone,
+        password: signUpPassword
+      });
+      if (res.success && res.user) {
+        showToast('Welcome!', 'success', 'Account created and signed in successfully.');
+        setIsAuthModalOpen(false);
+        router.push('/checkout');
+        router.refresh();
+      } else {
+        setSignUpError(res.error || 'Failed to create account.');
+      }
+    } catch (err: any) {
+      setSignUpError(err.message || 'An unexpected error occurred during sign up.');
+    } finally {
+      setIsAuthSubmitting(false);
+    }
   };
 
   if (items.length === 0) {
@@ -409,6 +542,169 @@ export default function CartPage() {
         cancelText="Cancel"
         variant="destructive"
       />
+
+      {/* Checkout Authentication Modal */}
+      <Modal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        title={authTab === 'signin' ? 'Sign In to Continue' : 'Create an Account'}
+        description={authTab === 'signin' ? 'Sign in to access your dashboard and checkout.' : 'Register to save your licenses and proceed to checkout.'}
+        size="md"
+      >
+        <div className="space-y-6">
+          {/* Tab selector */}
+          <div className="flex border-b border-border/60 font-semibold text-sm">
+            <button
+              onClick={() => {
+                setAuthTab('signin');
+                setSignInError('');
+                setSignUpError('');
+              }}
+              className={`flex-1 pb-2 border-b-2 text-center transition-all cursor-pointer ${
+                authTab === 'signin'
+                  ? 'border-primary text-primary font-bold'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Sign In
+            </button>
+            <button
+              onClick={() => {
+                setAuthTab('signup');
+                setSignInError('');
+                setSignUpError('');
+              }}
+              className={`flex-1 pb-2 border-b-2 text-center transition-all cursor-pointer ${
+                authTab === 'signup'
+                  ? 'border-primary text-primary font-bold'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Sign Up
+            </button>
+          </div>
+
+          {authTab === 'signin' ? (
+            <form onSubmit={handleSignInSubmit} className="space-y-4">
+              {signInError && (
+                <div className="flex gap-2.5 bg-destructive/10 border border-destructive/20 p-3 rounded-lg text-destructive text-xs font-semibold animate-shake">
+                  <ShieldAlert className="h-4.5 w-4.5 shrink-0" />
+                  <span>{signInError}</span>
+                </div>
+              )}
+
+              <div className="relative">
+                <Input
+                  label="Email Address"
+                  type="email"
+                  placeholder="name@example.com"
+                  value={signInEmail}
+                  onChange={(e) => setSignInEmail(e.target.value)}
+                  className="pl-10 text-xs h-10"
+                  required
+                />
+                <Mail className="absolute left-3 top-9.5 h-4 w-4 text-muted-foreground" />
+              </div>
+
+              <div className="relative">
+                <Input
+                  label="Password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={signInPassword}
+                  onChange={(e) => setSignInPassword(e.target.value)}
+                  className="pl-10 text-xs h-10"
+                  required
+                />
+                <Lock className="absolute left-3 top-9.5 h-4 w-4 text-muted-foreground" />
+              </div>
+
+              <Button type="submit" className="w-full mt-2 h-10 font-bold" isLoading={isAuthSubmitting}>
+                Sign In & Checkout
+              </Button>
+            </form>
+          ) : (
+            <form onSubmit={handleSignUpSubmit} className="space-y-4">
+              {signUpError && (
+                <div className="flex gap-2.5 bg-destructive/10 border border-destructive/20 p-3 rounded-lg text-destructive text-xs font-semibold animate-shake">
+                  <ShieldAlert className="h-4.5 w-4.5 shrink-0" />
+                  <span>{signUpError}</span>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="relative">
+                  <Input
+                    label="First Name"
+                    placeholder="Jane"
+                    value={signUpFirstName}
+                    onChange={(e) => setSignUpFirstName(e.target.value)}
+                    className="pl-10 text-xs h-10"
+                    required
+                  />
+                  <UserIcon className="absolute left-3 top-9.5 h-4 w-4 text-muted-foreground" />
+                </div>
+                <div className="relative">
+                  <Input
+                    label="Last Name"
+                    placeholder="Doe"
+                    value={signUpLastName}
+                    onChange={(e) => setSignUpLastName(e.target.value)}
+                    className="pl-10 text-xs h-10"
+                    required
+                  />
+                  <UserIcon className="absolute left-3 top-9.5 h-4 w-4 text-muted-foreground" />
+                </div>
+              </div>
+
+              <div className="relative">
+                <Input
+                  label="Email Address"
+                  type="email"
+                  placeholder="jane@example.com"
+                  value={signUpEmail}
+                  onChange={(e) => setSignUpEmail(e.target.value)}
+                  className="pl-10 text-xs h-10"
+                  required
+                />
+                <Mail className="absolute left-3 top-9.5 h-4 w-4 text-muted-foreground" />
+              </div>
+
+              <div className="relative">
+                <Input
+                  label="Phone Number"
+                  placeholder="0400 000 000"
+                  value={signUpPhone}
+                  onChange={(e) => handlePhoneChange(e.target.value)}
+                  maxLength={12}
+                  className="pl-10 text-xs h-10"
+                  required
+                  helperText="Format: XXXX XXX XXX"
+                />
+                <Phone className="absolute left-3 top-9.5 h-4 w-4 text-muted-foreground" />
+              </div>
+
+              <div className="relative">
+                <Input
+                  label="Password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={signUpPassword}
+                  onChange={(e) => setSignUpPassword(e.target.value)}
+                  className="pl-10 text-xs h-10"
+                  required
+                  helperText="Min. 8 chars, 1 uppercase, 1 number, 1 special char"
+                />
+                <Lock className="absolute left-3 top-9.5 h-4 w-4 text-muted-foreground" />
+              </div>
+
+              <Button type="submit" className="w-full mt-2 h-10 font-bold" isLoading={isAuthSubmitting}>
+                Sign Up & Checkout
+              </Button>
+            </form>
+          )}
+        </div>
+      </Modal>
     </div>
   );
 }

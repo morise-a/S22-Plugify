@@ -26,7 +26,7 @@ export async function createClient() {
         fetch: (url, options) => {
           return fetch(url, {
             ...options,
-            signal: options?.signal || AbortSignal.timeout(3000),
+            signal: options?.signal || AbortSignal.timeout(15000),
           });
         },
       },

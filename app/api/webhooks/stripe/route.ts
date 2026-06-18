@@ -26,8 +26,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Stripe settings are not configured.' }, { status: 500 });
   }
 
-  const secretKey = stripeSettings.secret_key || process.env.STRIPE_SECRET_KEY;
-  const webhookSecret = stripeSettings.webhook_secret || process.env.STRIPE_WEBHOOK_SECRET;
+  const secretKey = stripeSettings.secret_key;
+  const webhookSecret = stripeSettings.webhook_secret;
 
   if (!secretKey || !webhookSecret) {
     return NextResponse.json({ error: 'Gateway secrets are missing.' }, { status: 500 });

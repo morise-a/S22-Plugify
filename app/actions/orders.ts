@@ -451,13 +451,12 @@ export async function verifyCouponAction(code: string) {
  */
 export async function getPublicStripePublishableKeyAction() {
   const supabase = await createActionClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('stripe_settings')
     .select('publishable_key')
     .eq('id', 1)
     .single();
-
-  return data?.publishable_key || process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '';
+  return data?.publishable_key;
 }
 
 /**

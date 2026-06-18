@@ -14,7 +14,7 @@ export async function getStripeServerInstance() {
     .eq('id', 1)
     .single();
 
-  const secretKey = stripeSettings?.secret_key || process.env.STRIPE_SECRET_KEY;
+  const secretKey = stripeSettings?.secret_key;
 
   if (!secretKey || secretKey.includes('placeholder')) {
     throw new Error('Stripe Secret Key is not configured. Please set it up in the Admin Settings.');

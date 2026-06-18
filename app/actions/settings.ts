@@ -228,7 +228,7 @@ export async function testSmtpConnectionAction(config: {
       from_email: config.from_email,
       from_name: config.from_name,
     }, config.test_recipient);
-    
+
     return { success: true, message: `SMTP verification email sent! (MsgID: ${res.messageId})` };
   } catch (err: any) {
     console.error('SMTP test failure:', err);
@@ -329,9 +329,8 @@ export async function testStripeConnectionAction(secretKey?: string) {
 
   try {
     const stripe = new Stripe(finalKey, {
-      apiVersion: '2025-01-27.acacia' as any,
+      apiVersion: '2026-05-27.dahlia' as any,
     });
-    
     // Test API connection by listing customers with limit 1
     await stripe.customers.list({ limit: 1 });
     return { success: true, message: 'Stripe API connection successfully verified!' };

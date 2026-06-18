@@ -34,7 +34,7 @@ export async function POST(request: Request) {
   }
 
   const stripe = new Stripe(secretKey, {
-    apiVersion: '2025-01-27.acacia' as any,
+    apiVersion: '2026-05-27.dahlia' as any,
   });
 
   let event: Stripe.Event;
@@ -141,7 +141,7 @@ export async function POST(request: Request) {
         const itemLicenseKey = `S22-${crypto.randomBytes(16).toString('hex').toUpperCase().match(/.{4}/g)?.join('-')}`;
         const purchasedDate = new Date();
         const expiryDate = new Date();
-        
+
         let durationMonths = 12; // Default to 12 months
         if (name.includes('subscription') || name.includes('plan') || name.includes('pro') || name.includes('starter') || name.includes('enterprise') || name.includes('plugin') || name.includes('license') || name.includes('monthly') || name.includes('yearly')) {
           durationMonths = 1;
@@ -165,7 +165,7 @@ export async function POST(request: Request) {
               durationMonths = parseInt(match[1]);
             }
           }
-          
+
           // Check if there is already an active subscription for this user and product
           const { data: existingSub } = await supabaseAdmin
             .from('subscriptions')
@@ -216,7 +216,7 @@ export async function POST(request: Request) {
         const nameParts = nameWithoutCycle.split(' - ');
         if (nameParts.length > 1) {
           const parsedVariantName = nameParts.slice(1).join(' - ').trim();
-          
+
           // Look up variant details
           const { data: pv } = await supabaseAdmin
             .from('product_variants')
@@ -252,13 +252,13 @@ export async function POST(request: Request) {
             .select('domain_count, name')
             .eq('product_id', item.product_id)
             .limit(1);
-            
+
           if (fallbackPv && fallbackPv.length > 0) {
             slotsCount = fallbackPv[0].domain_count || 1;
             variantName = fallbackPv[0].name;
           }
         }
-        
+
         const isRenewal = (item as any).is_renewal || false;
         const renewalLicenseKey = (item as any).renewal_license_key || null;
 
@@ -299,7 +299,7 @@ export async function POST(request: Request) {
 
           for (let i = 0; i < slotsCount; i++) {
             const domainName = domainsList[i] || null;
-            
+
             await supabaseAdmin.from('purchased_domains').insert({
               user_id: order.user_id,
               order_id: order.id,
@@ -322,7 +322,7 @@ export async function POST(request: Request) {
               purchased_date: purchasedDate.toISOString(),
               expiry_date: expiryDate.toISOString(),
             });
-            
+
           if (licErr) {
             console.error('Failed to create product license key:', licErr);
           }

@@ -7,7 +7,7 @@ import { createActionClient } from '../supabase/action';
  */
 export async function getStripeServerInstance() {
   const supabase = await createActionClient();
-  
+
   const { data: stripeSettings } = await supabase
     .from('stripe_settings')
     .select('*')
@@ -21,6 +21,6 @@ export async function getStripeServerInstance() {
   }
 
   return new Stripe(secretKey, {
-    apiVersion: '2025-01-27.acacia' as any, // Set a modern API version compatibility
+    apiVersion: '2026-05-27.dahlia' as any, // Set a modern API version compatibility
   });
 }

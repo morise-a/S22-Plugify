@@ -133,6 +133,7 @@ export async function POST(request: Request) {
       .eq('order_id', order.id);
 
     if (orderItems && order.user_id) {
+      let domainIndexOffset = 0;
       for (const item of orderItems) {
         // If product name includes Subscription or Plan or Pro or Plugin, write to subscriptions table
         const name = item.product_name.toLowerCase();
@@ -297,8 +298,9 @@ export async function POST(request: Request) {
             ? checkoutDomain.split(',').map((d: string) => d.trim().toLowerCase()).filter(Boolean)
             : [];
 
-          for (let i = 0; i < slotsCount; i++) {
-            const domainName = domainsList[i] || null;
+          const totalSlots = slotsCount * item.quantity;
+          for (let i = 0; i < totalSlots; i++) {
+            const domainName = domainsList[domainIndexOffset + i] || null;
 
             await supabaseAdmin.from('purchased_domains').insert({
               user_id: order.user_id,
@@ -308,6 +310,7 @@ export async function POST(request: Request) {
               variant_name: variantName,
             });
           }
+          domainIndexOffset += totalSlots;
 
           // Insert into license_keys table (with resolved variant name saved in plan_name)
           const { error: licErr } = await supabaseAdmin

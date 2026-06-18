@@ -56,39 +56,6 @@ const billingSchema = z.object({
   lastName: z.string().min(1, 'Last name is required').max(50),
   email: z.string().min(1, 'Email is required').email('Invalid email address'),
   phone: z.string().min(12, 'Phone format: XXXX XXX XXX').max(12).regex(/^\d{4} \d{3} \d{3}$/, 'Must be XXXX XXX XXX'),
-  domain: z.string()
-    .min(1, 'Domain name is required')
-    .trim()
-    .toLowerCase()
-    .refine((val) => {
-      const items = useCartStore.getState().items;
-      const isOnlyRenewals = items.every((item) => item.isRenewal);
-      if (isOnlyRenewals) return true;
-
-      const isMultiDomain = items.some((item) => item.domain_count && item.domain_count > 1);
-      if (!isMultiDomain) {
-        return !val.includes(',');
-      }
-      return true;
-    }, {
-      message: 'Single domain plan only allows a single domain (no commas allowed).'
-    })
-    .refine((val) => {
-      const items = useCartStore.getState().items;
-      const isOnlyRenewals = items.every((item) => item.isRenewal);
-      if (isOnlyRenewals) return true;
-      const isMultiDomain = items.some((item) => item.domain_count && item.domain_count > 1);
-
-      if (!isMultiDomain) {
-        return isValidDomainOrLocalhost(val);
-      } else {
-        const domains = val.split(',').map(d => d.trim()).filter(Boolean);
-        if (domains.length === 0) return false;
-        return domains.every(d => isValidDomainOrLocalhost(d));
-      }
-    }, {
-      message: 'Please enter valid domain name(s) (e.g. example.com or localhost).'
-    }),
   addressLine1: z.string().min(1, 'Address is required').max(150),
   addressLine2: z.string().max(100).optional(),
   city: z.string().min(1, 'City is required').max(50),
@@ -127,7 +94,6 @@ export default function CheckoutPage() {
       lastName: '',
       email: '',
       phone: '',
-      domain: '',
       addressLine1: '',
       addressLine2: '',
       city: 'Sydney',
@@ -191,6 +157,21 @@ export default function CheckoutPage() {
     setValue('postalCode', raw.slice(0, 6), { shouldValidate: true });
   };
 
+  const [domainsMap, setDomainsMap] = React.useState<Record<string, string[]>>({});
+
+  // Initialize domainsMap when cart items change
+  React.useEffect(() => {
+    const initialMap: Record<string, string[]> = {};
+    items.forEach((item) => {
+      const itemKey = `${item.id}_${item.variantId || 'default'}`;
+      if (!item.isRenewal) {
+        const totalSlots = (item.domain_count || 1) * item.quantity;
+        initialMap[itemKey] = Array(totalSlots).fill('');
+      }
+    });
+    setDomainsMap(initialMap);
+  }, [items]);
+
   // Load user data for prefill and fetch Stripe Publishable Key
   React.useEffect(() => {
     async function loadInitialData() {
@@ -201,13 +182,6 @@ export default function CheckoutPage() {
         setValue('lastName', user.last_name || '');
         setValue('email', user.email || '');
         setValue('phone', user.phone_number || '');
-      }
-
-      // If it is a renewal, prefill domain with the cart item's domain to bypass validation
-      const isOnlyRenewals = items.every((item) => item.isRenewal);
-      if (isOnlyRenewals) {
-        const renewalDomain = (items.find((item) => item.isRenewal) as any)?.domain || 'renewal.com';
-        setValue('domain', renewalDomain);
       }
 
       // Fetch dynamic Stripe publishable key
@@ -225,7 +199,7 @@ export default function CheckoutPage() {
     }
 
     loadInitialData();
-  }, [setValue, showToast, items]);
+  }, [setValue, showToast]);
 
   const handlePhoneFormat = (e: React.ChangeEvent<HTMLInputElement>) => {
     const raw = e.target.value.replace(/\D/g, '');
@@ -248,12 +222,48 @@ export default function CheckoutPage() {
       return;
     }
 
+    // Validate all required domains across all items in order
+    const flatDomains: string[] = [];
+    let validationError = '';
+
+    for (const item of items) {
+      const itemKey = `${item.id}_${item.variantId || 'default'}`;
+      if (item.isRenewal) {
+        const renewalDomain = (item as any).domain || 'renewal.com';
+        flatDomains.push(renewalDomain);
+      } else {
+        const slots = domainsMap[itemKey] || [];
+        const expectedSlots = (item.domain_count || 1) * item.quantity;
+
+        if (slots.length < expectedSlots) {
+          validationError = `Please configure all domains for ${item.name}.`;
+          break;
+        }
+
+        for (let i = 0; i < expectedSlots; i++) {
+          const dVal = (slots[i] || '').trim().toLowerCase();
+          if (!dVal) {
+            validationError = `Please fill out all domain fields for ${item.name}.`;
+            break;
+          }
+          if (!isValidDomainOrLocalhost(dVal)) {
+            validationError = `"${dVal}" is not a valid domain name.`;
+            break;
+          }
+          flatDomains.push(dVal);
+        }
+      }
+      if (validationError) break;
+    }
+
+    if (validationError) {
+      showToast('Validation Error', 'error', validationError);
+      return;
+    }
+
     setIsSubmittingBilling(true);
 
-    if (isOnlyRenewals) {
-      const renewalDomain = (items.find((item) => item.isRenewal) as any)?.domain || 'renewal.com';
-      data.domain = renewalDomain;
-    }
+    const joinedDomains = flatDomains.join(',');
 
     const checkoutItems = items.map((i) => ({
       id: i.id,
@@ -266,7 +276,11 @@ export default function CheckoutPage() {
     }));
 
     try {
-      const res = await createPaymentIntentAction(checkoutItems, data, couponCode || undefined);
+      const res = await createPaymentIntentAction(
+        checkoutItems, 
+        { ...data, domain: joinedDomains } as any, 
+        couponCode || undefined
+      );
       if (res.success && res.clientSecret && res.orderNumber) {
         setClientSecret(res.clientSecret);
         setOrderNumber(res.orderNumber);
@@ -353,33 +367,7 @@ export default function CheckoutPage() {
                     />
                   </div>
 
-                  {(() => {
-                    const isMultiDomain = items.some((item) => item.domain_count && item.domain_count > 1);
-                    return (
-                      <div className="space-y-1">
-                        <Input
-                          label={isMultiDomain ? "Domain(s) for License Registration" : "Domain for License Registration"}
-                          placeholder={isMultiDomain ? "example.com or domain1.com, domain2.com" : "example.com"}
-                          error={errors.domain?.message}
-                          disabled={isOnlyRenewals}
-                          {...register('domain')}
-                        />
-                        {isOnlyRenewals ? (
-                          <p className="text-[10px] text-amber-600 font-semibold px-1">
-                            Plan renewal: domain license configuration is locked and cannot be changed.
-                          </p>
-                        ) : isMultiDomain ? (
-                          <p className="text-[10px] text-muted-foreground font-semibold px-1">
-                            You are purchasing a multiple-domain plan. You can register multiple domains by separating them with commas (e.g. <span className="font-mono font-bold text-slate-700">domain1.com, domain2.com</span>).
-                          </p>
-                        ) : (
-                          <p className="text-[10px] text-muted-foreground font-semibold px-1">
-                            You are purchasing a single-domain plan. Please enter a single valid domain (no commas allowed).
-                          </p>
-                        )}
-                      </div>
-                    );
-                  })()}
+
 
                   <Input
                     label="Address Line 1"
@@ -478,30 +466,66 @@ export default function CheckoutPage() {
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Items List */}
-              <div className="space-y-4 max-h-[220px] overflow-y-auto pr-2 divide-y divide-border/40">
+              <div className="space-y-4 max-h-[350px] overflow-y-auto pr-2 divide-y divide-border/40">
                 {items.map((item, idx) => (
-                  <div key={item.id} className={`flex justify-between items-center gap-2 ${idx > 0 ? 'pt-3' : ''}`}>
-                    <div className="flex gap-2.5 items-center">
-                      <div className="h-10 w-12 bg-secondary/30 rounded border border-border flex-shrink-0">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={item.image_url || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80'} alt={item.name} className="w-full h-full object-cover" />
+                  <div key={item.id} className={`flex flex-col gap-2.5 ${idx > 0 ? 'pt-4' : ''}`}>
+                    <div className="flex justify-between items-center gap-2">
+                      <div className="flex gap-2.5 items-center">
+                        <div className="h-10 w-12 bg-secondary/30 rounded border border-border flex-shrink-0">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={item.image_url || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80'} alt={item.name} className="w-full h-full object-cover" />
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-bold text-foreground line-clamp-1">{item.name}</h4>
+                          {item.variantName && (
+                            <span className="block text-[10px] text-indigo-655 font-bold">{item.variantName}</span>
+                          )}
+                          {item.isRenewal && item.startDate && item.endDate && (
+                            <span className="block text-[10px] text-amber-600 font-bold mt-0.5">
+                              🔄 Renewal: {item.startDate} - {item.endDate}
+                            </span>
+                          )}
+                          <span className="text-[10px] text-muted-foreground">{item.quantity}x @ ${item.price}</span>
+                        </div>
                       </div>
-                      <div>
-                        <h4 className="text-xs font-bold text-foreground line-clamp-1">{item.name}</h4>
-                        {item.variantName && (
-                          <span className="block text-[10px] text-indigo-650 font-bold">{item.variantName}</span>
-                        )}
-                        {item.isRenewal && item.startDate && item.endDate && (
-                          <span className="block text-[10px] text-amber-600 font-bold mt-0.5">
-                            🔄 Renewal: {item.startDate} - {item.endDate}
-                          </span>
-                        )}
-                        <span className="text-[10px] text-muted-foreground">{item.quantity}x @ ${item.price}</span>
-                      </div>
+                      <span className="text-xs font-bold text-foreground">
+                        ${(item.price * item.quantity).toFixed(2)}
+                      </span>
                     </div>
-                    <span className="text-xs font-bold text-foreground">
-                      ${(item.price * item.quantity).toFixed(2)}
-                    </span>
+
+                    {/* Dynamic Registered Domain Inputs per Slot */}
+                    {(() => {
+                      const itemKey = `${item.id}_${item.variantId || 'default'}`;
+                      const slots = domainsMap[itemKey] || [];
+                      if (item.isRenewal) {
+                        return (
+                          <div className="pl-14 text-[10px] text-amber-655 font-semibold font-sans">
+                            Locked domain: <span className="font-mono bg-amber-50 px-1 py-0.5 border border-amber-100 rounded">{(item as any).domain || 'renewal.com'}</span>
+                          </div>
+                        );
+                      }
+                      if (slots.length === 0) return null;
+                      return (
+                        <div className="pl-14 space-y-1.5">
+                          <label className="text-[9px] font-bold text-slate-500 capitalize tracking-wider block">Domain Registration (Required)</label>
+                          {slots.map((domainValue, slotIdx) => (
+                            <input
+                              key={slotIdx}
+                              type="text"
+                              placeholder={`Domain slot ${slotIdx + 1} (e.g. site.com)`}
+                              value={domainValue}
+                              onChange={(e) => {
+                                const updated = [...slots];
+                                updated[slotIdx] = e.target.value;
+                                setDomainsMap(prev => ({ ...prev, [itemKey]: updated }));
+                              }}
+                              className="w-full text-xs h-8 px-2.5 rounded-lg border border-border bg-card focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary shadow-sm"
+                              required
+                            />
+                          ))}
+                        </div>
+                      );
+                    })()}
                   </div>
                 ))}
               </div>

@@ -110,7 +110,7 @@ export default function CartPage() {
     // 1. If product has variants
     if (product.product_variants && product.product_variants.length > 0) {
       const currentVariant = product.product_variants.find((v: any) => v.id === item.variantId);
-      
+
       const cleanVariantName = (name: string) =>
         name
           .replace(/\s*\(.*Monthly.*\)/i, '')
@@ -173,14 +173,14 @@ export default function CartPage() {
       const start = new Date(item.startDate);
       const end = new Date(start);
       end.setMonth(start.getMonth() + (newCycle === 'yearly' ? 12 : 1));
-      
+
       const format = (dVal: Date) => dVal.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
       updatedFields.endDate = format(end);
     } else {
       const start = new Date();
       const end = new Date(start);
       end.setMonth(start.getMonth() + (newCycle === 'yearly' ? 12 : 1));
-      
+
       const format = (dVal: Date) => dVal.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
       updatedFields.startDate = format(start);
       updatedFields.endDate = format(end);
@@ -188,6 +188,60 @@ export default function CartPage() {
 
     useCartStore.getState().updateCartItem(item.id, item.variantId, updatedFields);
     showToast('Plan Updated', 'success', `Switched "${item.name}" to ${newCycleLabel} billing.`);
+  };
+
+  const handleVariantChange = async (item: any, newVariantId: string) => {
+    let product = productsDetails[item.id];
+    if (!product) {
+      try {
+        product = await getProductAction(item.id);
+        if (product) {
+          setProductsDetails((prev) => ({ ...prev, [item.id]: product }));
+        }
+      } catch (err) {
+        console.error('Failed to fetch product details:', err);
+      }
+    }
+
+    if (!product) {
+      showToast('Error', 'error', 'Could not retrieve product details.');
+      return;
+    }
+
+    const newVariant = product.product_variants?.find((v: any) => v.id === newVariantId);
+    if (!newVariant) return;
+
+    const itemCycle = item.billingCycle || 'monthly';
+    const isYearlyVariant = newVariant.billing_cycle === 'yearly';
+
+    // Calculate new price based on billing cycle
+    let newPrice = Number(newVariant.price);
+    if (!isYearlyVariant) {
+      if (itemCycle === 'yearly') {
+        newPrice = newPrice * 10;
+      } else {
+        newPrice = newPrice * (item.durationMonths || 1);
+      }
+    }
+
+    const newCycleLabel = itemCycle === 'yearly' ? 'Yearly' : 'Monthly';
+    let newVariantName = '';
+    if (item.isRenewal) {
+      newVariantName = `${newVariant.name} (Renewal - ${newCycleLabel})`;
+    } else {
+      newVariantName = `${newVariant.name} (${newCycleLabel})`;
+    }
+
+    const updatedFields: any = {
+      variantId: newVariant.id,
+      variantName: newVariantName,
+      price: newPrice,
+      domain_count: newVariant.domain_count,
+      layout_count: newVariant.layout_count,
+    };
+
+    useCartStore.getState().updateCartItem(item.id, item.variantId, updatedFields);
+    showToast('Variant Updated', 'success', `Switched "${item.name}" to variant: ${newVariant.name}.`);
   };
 
   const { subtotal, discount, processingFee, tax, total } = getTotals();
@@ -267,7 +321,7 @@ export default function CartPage() {
   const handleSignUpSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSignUpError('');
-    
+
     if (!signUpFirstName || !signUpLastName || !signUpEmail || !signUpPhone || !signUpPassword) {
       setSignUpError('All fields are required.');
       return;
@@ -399,12 +453,44 @@ export default function CartPage() {
                         </button>
                       </div>
                     </div>
+
+                    {/* Select License Variant Option Selector */}
+                    {(() => {
+                      const itemCycle = item.billingCycle || 'monthly';
+                      const productVariants = (productsDetails[item.id]?.product_variants || []).filter(
+                        (v: any) => (v.billing_cycle || 'monthly') === itemCycle
+                      );
+                      if (item.isRenewal || productVariants.length <= 1) return null;
+                      return (
+                        <div className="flex items-center gap-2 mt-2.5">
+                          <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">License:</span>
+                          <div className="relative inline-block">
+                            <select
+                              value={item.variantId || ''}
+                              onChange={(e) => handleVariantChange(item, e.target.value)}
+                              className="text-[10px] font-bold h-7 pl-2.5 pr-8 bg-secondary rounded-lg border border-border/40 hover:border-foreground/20 focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer appearance-none transition-all"
+                            >
+                              {productVariants.map((v: any) => (
+                                <option key={v.id} value={v.id}>
+                                  {v.name} - ${Number(v.price).toFixed(2)}
+                                </option>
+                              ))}
+                            </select>
+                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-muted-foreground">
+                              <svg className="fill-current h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z" />
+                              </svg>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
 
                 <div className="flex items-center justify-between sm:justify-end gap-6 w-full sm:w-auto">
                   {/* Quantity Control */}
-                  {/* <div className="flex items-center border border-input bg-card rounded-lg overflow-hidden h-9">
+                  <div className="flex items-center border border-input bg-card rounded-lg overflow-hidden h-9">
                     <button
                       type="button"
                       onClick={() => updateQuantity(item.id, item.quantity - 1)}
@@ -420,7 +506,7 @@ export default function CartPage() {
                     >
                       +
                     </button>
-                  </div> */}
+                  </div>
 
                   <div className="text-right">
                     <span className="text-sm font-bold text-foreground block">
@@ -560,11 +646,10 @@ export default function CartPage() {
                 setSignInError('');
                 setSignUpError('');
               }}
-              className={`flex-1 pb-2 border-b-2 text-center transition-all cursor-pointer ${
-                authTab === 'signin'
-                  ? 'border-primary text-primary font-bold'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
+              className={`flex-1 pb-2 border-b-2 text-center transition-all cursor-pointer ${authTab === 'signin'
+                ? 'border-primary text-primary font-bold'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+                }`}
             >
               Sign In
             </button>
@@ -574,11 +659,10 @@ export default function CartPage() {
                 setSignInError('');
                 setSignUpError('');
               }}
-              className={`flex-1 pb-2 border-b-2 text-center transition-all cursor-pointer ${
-                authTab === 'signup'
-                  ? 'border-primary text-primary font-bold'
-                  : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
+              className={`flex-1 pb-2 border-b-2 text-center transition-all cursor-pointer ${authTab === 'signup'
+                ? 'border-primary text-primary font-bold'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+                }`}
             >
               Sign Up
             </button>

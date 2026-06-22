@@ -3,6 +3,8 @@
 import { createActionClient } from '../../lib/supabase/action';
 import { getStripeServerInstance } from '../../lib/stripe/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import crypto from 'crypto';
+import { sendEmail } from '../../lib/email/mailer';
 
 export interface CheckoutBillingInput {
   firstName: string;
@@ -389,11 +391,12 @@ export async function getOrderDownloadableProductsAction(orderNumber: string) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  const { data: order, error } = await supabase
+  let { data: order, error } = await supabase
     .from('orders')
     .select(`
       id,
       status,
+      stripe_payment_intent_id,
       order_items (
         product_id
       )
@@ -403,6 +406,40 @@ export async function getOrderDownloadableProductsAction(orderNumber: string) {
 
   if (error || !order) {
     return { success: false, status: 'not_found', products: [] };
+  }
+
+  // Fallback: Check if Stripe payment succeeded but webhook failed or has not completed yet.
+  if (order.status !== 'paid' && order.stripe_payment_intent_id) {
+    try {
+      const stripe = await getStripeServerInstance();
+      const paymentIntent = await stripe.paymentIntents.retrieve(order.stripe_payment_intent_id);
+      
+      if (paymentIntent && paymentIntent.status === 'succeeded') {
+        console.log(`Self-healing fallback triggered: Fulfilling order ${orderNumber} via client polling check.`);
+        // Run fulfillment logic synchronously
+        await fulfillOrderAction(orderNumber, paymentIntent);
+        
+        // Re-fetch updated order state from database
+        const { data: updatedOrder } = await supabase
+          .from('orders')
+          .select(`
+            id,
+            status,
+            order_items (
+              product_id
+            )
+          `)
+          .eq('order_number', orderNumber)
+          .maybeSingle();
+          
+        if (updatedOrder) {
+          order.status = updatedOrder.status;
+          order.order_items = updatedOrder.order_items as any;
+        }
+      }
+    } catch (stripeErr) {
+      console.error('Failed to verify/fulfill order via Stripe fallback:', stripeErr);
+    }
   }
 
   if (order.status !== 'paid') {
@@ -558,4 +595,373 @@ export async function markOrderAsFailedAction(orderNumber: string) {
     console.error('Failed to run markOrderAsFailedAction:', err);
     return { success: false, error: 'Failed to process order failure update.' };
   }
+}
+
+/**
+ * Fulfills an order after a successful payment has been confirmed.
+ * This provisions subscription, domain slots, license keys, sends email, and logs status.
+ */
+export async function fulfillOrderAction(orderNumber: string, paymentIntent: any) {
+  const supabaseAdmin = createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  // Retrieve order row
+  const { data: order, error: findError } = await supabaseAdmin
+    .from('orders')
+    .select('*')
+    .eq('order_number', orderNumber)
+    .single();
+
+  if (findError || !order) {
+    console.error(`Order not found for orderNumber: ${orderNumber}`, findError);
+    return { success: false, error: 'Pending order record not found.' };
+  }
+
+  // Guard: Prevent double-updating already-paid orders
+  if (order.status === 'paid') {
+    return { success: true, message: 'Already marked as paid.' };
+  }
+
+  // 1. Update Order Status
+  const { error: orderUpdateErr } = await supabaseAdmin
+    .from('orders')
+    .update({
+      status: 'paid',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', order.id);
+
+  if (orderUpdateErr) {
+    console.error('Failed to update order status:', orderUpdateErr);
+    return { success: false, error: 'Order update failed.' };
+  }
+
+  // Retrieve charge details for receipt URL
+  const charge = paymentIntent.latest_charge;
+  let receiptUrl = null;
+  if (typeof charge === 'object' && charge !== null) {
+    receiptUrl = charge.receipt_url;
+  } else if (paymentIntent.charges && paymentIntent.charges.data.length > 0) {
+    receiptUrl = paymentIntent.charges.data[0].receipt_url;
+  }
+
+  // 2. Update Payment records
+  const { error: paymentUpdateErr } = await supabaseAdmin
+    .from('payments')
+    .update({
+      status: 'succeeded',
+      receipt_url: receiptUrl || null,
+      stripe_charge_id: typeof paymentIntent.latest_charge === 'string' ? paymentIntent.latest_charge : paymentIntent.latest_charge?.id || null,
+      stripe_response: paymentIntent,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('order_id', order.id);
+
+  if (paymentUpdateErr) {
+    console.error('Failed to write payment details:', paymentUpdateErr);
+  }
+
+  // 3. Retrieve order items to check if subscription provisioning is needed
+  const { data: orderItems } = await supabaseAdmin
+    .from('order_items')
+    .select('*')
+    .eq('order_id', order.id);
+
+  if (orderItems && order.user_id) {
+    let domainIndexOffset = 0;
+    for (const item of orderItems) {
+      // If product name includes Subscription or Plan or Pro or Plugin, write to subscriptions table
+      const name = item.product_name.toLowerCase();
+
+      // Generate a secure license key for each product in the order
+      const itemLicenseKey = `S22-${crypto.randomBytes(16).toString('hex').toUpperCase().match(/.{4}/g)?.join('-')}`;
+      const purchasedDate = new Date();
+      const expiryDate = new Date();
+
+      let durationMonths = 12; // Default to 12 months
+      if (name.includes('subscription') || name.includes('plan') || name.includes('pro') || name.includes('starter') || name.includes('enterprise') || name.includes('plugin') || name.includes('license') || name.includes('monthly') || name.includes('yearly')) {
+        durationMonths = 1;
+        if (name.includes('yearly')) {
+          durationMonths = 12;
+        } else {
+          const match = name.match(/monthly - (\d+) month/);
+          if (match) {
+            durationMonths = parseInt(match[1]);
+          }
+        }
+      }
+      expiryDate.setMonth(purchasedDate.getMonth() + durationMonths);
+      if (name.includes('subscription') || name.includes('plan') || name.includes('pro') || name.includes('starter') || name.includes('enterprise') || name.includes('plugin') || name.includes('license') || name.includes('monthly') || name.includes('yearly')) {
+        let durationMonths = 1;
+        if (name.includes('yearly')) {
+          durationMonths = 12;
+        } else {
+          const match = name.match(/monthly - (\d+) month/);
+          if (match) {
+            durationMonths = parseInt(match[1]);
+          }
+        }
+
+        // Check if there is already an active subscription for this user and product
+        const { data: existingSub } = await supabaseAdmin
+          .from('subscriptions')
+          .select('*')
+          .eq('user_id', order.user_id)
+          .eq('product_id', item.product_id)
+          .eq('status', 'active')
+          .gt('current_period_end', new Date().toISOString())
+          .order('current_period_end', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (existingSub) {
+          // Extend the existing subscription end date
+          const newEndDate = new Date(existingSub.current_period_end);
+          newEndDate.setMonth(newEndDate.getMonth() + durationMonths);
+
+          await supabaseAdmin
+            .from('subscriptions')
+            .update({
+              current_period_end: newEndDate.toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', existingSub.id);
+        } else {
+          // Insert a new subscription
+          const startDate = new Date();
+          const endDate = new Date();
+          endDate.setMonth(startDate.getMonth() + durationMonths);
+
+          await supabaseAdmin.from('subscriptions').insert({
+            user_id: order.user_id,
+            product_id: item.product_id,
+            status: 'active',
+            stripe_subscription_id: `sub_${Math.random().toString(36).substring(2, 9)}`,
+            current_period_start: startDate.toISOString(),
+            current_period_end: endDate.toISOString(),
+          });
+        }
+      }
+
+      // Provision purchased domains slots dynamically using domain_count stored on variant
+      let slotsCount = 1;
+      let variantName = 'Standard';
+      let foundVariant = false;
+
+      const nameWithoutCycle = item.product_name.split(' (')[0];
+      const nameParts = nameWithoutCycle.split(' - ');
+      if (nameParts.length > 1) {
+        const parsedVariantName = nameParts.slice(1).join(' - ').trim();
+
+        // Look up variant details
+        const { data: pv } = await supabaseAdmin
+          .from('product_variants')
+          .select('domain_count, name')
+          .eq('product_id', item.product_id)
+          .eq('name', parsedVariantName)
+          .maybeSingle();
+
+        if (pv) {
+          slotsCount = pv.domain_count || 1;
+          variantName = pv.name;
+          foundVariant = true;
+        } else {
+          // Case-insensitive/like lookup just in case
+          const { data: pvLike } = await supabaseAdmin
+            .from('product_variants')
+            .select('domain_count, name')
+            .eq('product_id', item.product_id)
+            .ilike('name', `%${parsedVariantName}%`)
+            .limit(1);
+          if (pvLike && pvLike.length > 0) {
+            slotsCount = pvLike[0].domain_count || 1;
+            variantName = pvLike[0].name;
+            foundVariant = true;
+          }
+        }
+      }
+
+      // Fallback: query database for first variant of this product if none matches explicitly
+      if (!foundVariant) {
+        const { data: fallbackPv } = await supabaseAdmin
+          .from('product_variants')
+          .select('domain_count, name')
+          .eq('product_id', item.product_id)
+          .limit(1);
+
+        if (fallbackPv && fallbackPv.length > 0) {
+          slotsCount = fallbackPv[0].domain_count || 1;
+          variantName = fallbackPv[0].name;
+        }
+      }
+
+      const isRenewal = item.is_renewal || false;
+      const renewalLicenseKey = item.renewal_license_key || null;
+
+      if (isRenewal && renewalLicenseKey) {
+        // RENEWAL PROCESS: Update existing license key expiry date based on plan duration
+        const { data: existingLicense } = await supabaseAdmin
+          .from('license_keys')
+          .select('*')
+          .eq('license_key', renewalLicenseKey)
+          .maybeSingle();
+
+        if (existingLicense) {
+          const currentExpiry = new Date(existingLicense.expiry_date);
+          const baseDate = currentExpiry > new Date() ? currentExpiry : new Date();
+          const newExpiry = new Date(baseDate);
+          newExpiry.setMonth(baseDate.getMonth() + durationMonths);
+
+          const { error: updateLicErr } = await supabaseAdmin
+            .from('license_keys')
+            .update({
+              expiry_date: newExpiry.toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', existingLicense.id);
+
+          if (updateLicErr) {
+            console.error(`Failed to renew license key ${renewalLicenseKey}:`, updateLicErr);
+          }
+        } else {
+          console.error(`Renewal license key not found in db: ${renewalLicenseKey}`);
+        }
+      } else {
+        // NEW PURCHASE PROCESS: Provision domains and generate new license key
+        const checkoutDomain = paymentIntent.metadata.domain || '';
+        const domainsList = checkoutDomain
+          ? checkoutDomain.split(',').map((d: string) => d.trim().toLowerCase()).filter(Boolean)
+          : [];
+
+        const totalSlots = slotsCount * item.quantity;
+        for (let i = 0; i < totalSlots; i++) {
+          const domainName = domainsList[domainIndexOffset + i] || null;
+
+          await supabaseAdmin.from('purchased_domains').insert({
+            user_id: order.user_id,
+            order_id: order.id,
+            product_id: item.product_id,
+            domain_name: domainName,
+            variant_name: variantName,
+          });
+        }
+        domainIndexOffset += totalSlots;
+
+        // Insert into license_keys table (with resolved variant name saved in plan_name)
+        const { error: licErr } = await supabaseAdmin
+          .from('license_keys')
+          .insert({
+            user_id: order.user_id,
+            order_id: order.id,
+            product_id: item.product_id,
+            product_name: item.product_name,
+            plan_name: variantName,
+            license_key: itemLicenseKey,
+            purchased_date: purchasedDate.toISOString(),
+            expiry_date: expiryDate.toISOString(),
+          });
+
+        if (licErr) {
+          console.error('Failed to create product license key:', licErr);
+        }
+      }
+    }
+  }
+
+  // 4. Send Confirmation Email via SMTP
+  if (order.billing_email) {
+    try {
+      const { data: template } = await supabaseAdmin
+        .from('mail_templates')
+        .select('*')
+        .eq('template_name', 'order_confirmation')
+        .single();
+
+      const customerName = `${order.billing_first_name} ${order.billing_last_name}`;
+      const itemsList = orderItems
+        ? orderItems.map((i) => `${i.product_name} (x${i.quantity})`).join(', ')
+        : 'Software License';
+
+      const subject = template?.subject
+        ? template.subject.replace(/{{order_number}}/g, order.order_number)
+        : `Order Confirmation - #${order.order_number}`;
+
+      const defaultHtml = `
+        <h2>Thank you for your order!</h2>
+        <p>Hi {{customer_name}},</p>
+        <p>We received your payment of <strong>{{payment_amount}}</strong> for <strong>{{product_name}}</strong>.</p>
+        <p>Order reference: <strong>{{order_number}}</strong></p>
+        <p>Your Product License Key: <strong style="font-family: monospace; font-size: 1.1em; letter-spacing: 0.5px;">{{license_key}}</strong></p>
+      `;
+
+      const rawHtml = template?.html_content || defaultHtml;
+
+      // Fetch all generated license keys for this order
+      let generatedLicenses: any[] = [];
+      if (order.user_id) {
+        const { data: licenses } = await supabaseAdmin
+          .from('license_keys')
+          .select('product_name, license_key')
+          .eq('order_id', order.id);
+        generatedLicenses = licenses || [];
+      }
+
+      let licenseKeysDisplay = 'N/A';
+      if (generatedLicenses.length > 0) {
+        if (generatedLicenses.length === 1) {
+          licenseKeysDisplay = generatedLicenses[0].license_key;
+        } else {
+          licenseKeysDisplay = generatedLicenses.map((l: any) => `${l.product_name}: ${l.license_key}`).join('<br/>');
+        }
+      }
+
+      let emailBody = rawHtml
+        .replace(/{{customer_name}}/g, customerName)
+        .replace(/{{order_number}}/g, order.order_number)
+        .replace(/{{product_name}}/g, itemsList)
+        .replace(/{{payment_amount}}/g, `$${order.total.toFixed(2)}`)
+        .replace(/{{license_key}}/g, licenseKeysDisplay);
+
+      // If the custom template didn't have the license_key placeholder, append it cleanly at the bottom
+      if (template?.html_content && !template.html_content.includes('{{license_key}}')) {
+        if (generatedLicenses.length > 1) {
+          emailBody += `<div style="margin-top: 20px; padding: 15px; background-color: #f8fafc; border: 1px dashed #e2e8f0; border-radius: 8px;"><strong>Your Product License Keys:</strong><br/>${licenseKeysDisplay}</div>`;
+        } else {
+          emailBody += `<p style="margin-top: 20px; padding: 15px; background-color: #f8fafc; border: 1px dashed #e2e8f0; border-radius: 8px;">Your Product License Key: <strong style="font-family: monospace; font-size: 1.1em; letter-spacing: 0.5px;">${licenseKeysDisplay}</strong></p>`;
+        }
+      }
+
+      // Send email in background, passing the admin service role client for settings retrieval
+      sendEmail(
+        {
+          to: order.billing_email,
+          subject,
+          html: emailBody,
+        },
+        supabaseAdmin
+      ).catch((emailErr) => {
+        console.error('Email confirmation dispatch failure in background:', emailErr);
+      });
+    } catch (emailErr) {
+      console.error('Email confirmation dispatch failure:', emailErr);
+    }
+  }
+
+  // 5. Create System Notification
+  if (order.user_id) {
+    try {
+      await supabaseAdmin.from('notifications').insert({
+        user_id: order.user_id,
+        title: 'Order Confirmed',
+        message: `Your payment for order #${order.order_number} has been processed successfully.`,
+        read: false,
+      });
+    } catch (notifErr) {
+      console.error('Failed to create customer dashboard notification:', notifErr);
+    }
+  }
+
+  return { success: true };
 }

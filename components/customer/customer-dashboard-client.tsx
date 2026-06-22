@@ -830,7 +830,7 @@ export function CustomerDashboardClient({ profile, subscriptions, orders, notifi
                   </div>
                 )}
                 <div className="flex justify-between text-slate-500">
-                  <span>Tax (8%):</span>
+                  <span>Tax (10%):</span>
                   <span className="font-mono">${Number(selectedInvoiceOrder.tax).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-slate-500">

@@ -456,7 +456,7 @@ export default function CheckoutPage() {
         </div>
 
         {/* Right Column: Order Review */}
-        <div className="space-y-6">
+        <div className="lg:sticky lg:top-20 space-y-6">
           <Card className="border-border/60 bg-card shadow-sm">
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
@@ -552,7 +552,7 @@ export default function CheckoutPage() {
                 </div>
 
                 <div className="flex justify-between text-muted-foreground">
-                  <span>Tax (8%)</span>
+                  <span>Tax (10%)</span>
                   <span>${tax.toFixed(2)}</span>
                 </div>
 

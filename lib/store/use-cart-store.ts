@@ -39,7 +39,7 @@ interface CartState {
   };
 }
 
-const TAX_RATE = 0.08; // 8% flat tax
+const TAX_RATE = 0.10; // 10% flat tax
 const STRIPE_PERCENT = 0.029; // 2.9%
 const STRIPE_FLAT = 0.30; // $0.30
 

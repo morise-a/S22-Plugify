@@ -102,7 +102,7 @@ export default async function LandingPage() {
                 <span>$1.56</span>
               </div>
               <div className="flex justify-between text-muted-foreground">
-                <span>Tax (8%)</span>
+                <span>Tax (10%)</span>
                 <span>$3.48</span>
               </div>
               <hr className="border-border/60" />

@@ -568,7 +568,7 @@ export default function CartPage() {
                 </div>
 
                 <div className="flex justify-between text-muted-foreground">
-                  <span>Tax (8%)</span>
+                  <span>Tax (10%)</span>
                   <span>${tax.toFixed(2)}</span>
                 </div>
 

@@ -22,7 +22,14 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
-
+    const formatDate = (dateVal: any) => {
+      if (!dateVal) return '';
+      const d = new Date(dateVal);
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      const yyyy = d.getFullYear();
+      return `${mm}/${dd}/${yyyy}`;
+    };
     const trimmedDomain = domain.trim().toLowerCase();
     const trimmedEmail = email.trim().toLowerCase();
     const trimmedLicenseKey = incomingLicenseKey.trim();
@@ -59,7 +66,13 @@ export async function POST(request: Request) {
     const now = new Date();
     if (license.expiry_date && new Date(license.expiry_date) < now) {
       return NextResponse.json(
-        { status: false, error: 'License key has expired.' },
+        {
+          status: false,
+          error: 'License key has expired.',
+          purchased_date: formatDate(license.purchased_date),
+          expiry_date: formatDate(license.expiry_date),
+          plan_name: license.plan_name,
+        },
         { status: 401 }
       );
     }
@@ -208,15 +221,6 @@ export async function POST(request: Request) {
 
     let encrypted = cipher.update(credentialsPayload, 'utf8', 'base64');
     encrypted += cipher.final('base64');
-
-    const formatDate = (dateVal: any) => {
-      if (!dateVal) return '';
-      const d = new Date(dateVal);
-      const mm = String(d.getMonth() + 1).padStart(2, '0');
-      const dd = String(d.getDate()).padStart(2, '0');
-      const yyyy = d.getFullYear();
-      return `${mm}/${dd}/${yyyy}`;
-    };
 
     const responseData: any = {
       status: true,
